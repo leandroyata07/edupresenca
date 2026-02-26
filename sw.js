@@ -1,5 +1,5 @@
 // EduPresença – Service Worker (Cache-First for static assets, Network-First for navigation)
-const CACHE_NAME = 'edu-presenca-v2.0';
+const CACHE_NAME = 'edu-presenca-v2.1';
 const STATIC_ASSETS = [
     './',
     './index.html',

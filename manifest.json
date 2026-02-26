@@ -1,0 +1,22 @@
+{
+  "name": "EduPresença v2",
+  "short_name": "EduPresença v2",
+  "description": "EduPresença v2 – Sistema de gerenciamento escolar (versão de testes).",
+  "start_url": "/edupresenca/",
+  "scope": "/edupresenca/",
+  "display": "standalone",
+  "background_color": "#0d0d1a",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

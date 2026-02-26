@@ -5,6 +5,22 @@ import { turmas, alunos, presencas, notas, cursos, unidades, disciplinas } from 
 import { formatPercent, escapeHtml as eh, formatDate } from '../utils.js';
 
 export function render(outlet) {
+  // Estado avançado dos relatórios
+  window.relatoriosState = window.relatoriosState || {
+    tipoRelatorio: 'geral', // 'geral', 'data', 'aluno', 'disciplina', 'turma'
+    // Filtros do Geral
+    showKpis: true,
+    showFrequencia: true,
+    showNotas: true,
+    showBaixaFrequencia: true,
+    // Filtros Específicos
+    filtroData: new Date().toISOString().split('T')[0],
+    filtroAlunoId: '',
+    filtroDisciplina: '',
+    filtroTurmaId: ''
+  };
+  const state = window.relatoriosState;
+
   const allTurmas = turmas.getAll();
   const allAlunos = alunos.getAll();
   const allCursos = cursos.getAll();
@@ -105,8 +121,8 @@ export function render(outlet) {
   outlet.innerHTML = `
     <div class="page-header">
       <div class="page-header-left">
-        <h1 class="page-title">Relatórios</h1>
-        <p class="page-subtitle">Visualize estatísticas e indicadores do sistema</p>
+        <h1 class="page-title">Relatórios Avançados</h1>
+        <p class="page-subtitle">Visualize e exporte dados específicos da instituição</p>
       </div>
       <div class="page-header-actions">
         <button class="btn btn-ghost btn-sm" id="btn-exportar-csv">
@@ -123,268 +139,384 @@ export function render(outlet) {
             <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
             <rect x="6" y="14" width="12" height="8"/>
           </svg>
-          Imprimir
+          Imprimir / PDF
         </button>
       </div>
     </div>
 
-    <!-- KPIs -->
-    <div class="kpi-grid" style="margin-bottom: var(--space-6);">
-      <div class="kpi-card">
-        <div class="kpi-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-            <circle cx="9" cy="7" r="4"/>
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-          </svg>
+    <!-- Controles de Tipo e Filtro do Relatório -->
+    <div class="card" style="margin-bottom: var(--space-6);">
+      <div class="card-body" style="padding: var(--space-4) var(--space-6); display: flex; gap: var(--space-4); align-items: flex-end; flex-wrap: wrap;">
+        
+        <!-- Seletor de Tipo -->
+        <div class="form-group" style="min-width: 200px;">
+          <label class="form-label">Tipo de Relatório</label>
+          <select class="form-control" id="select-tipo-relatorio">
+            <option value="geral" ${state.tipoRelatorio === 'geral' ? 'selected' : ''}>Visão Geral (Painel)</option>
+            <option value="data" ${state.tipoRelatorio === 'data' ? 'selected' : ''}>Presença por Data</option>
+            <option value="aluno" ${state.tipoRelatorio === 'aluno' ? 'selected' : ''}>Desempenho por Aluno</option>
+            <option value="disciplina" ${state.tipoRelatorio === 'disciplina' ? 'selected' : ''}>Notas por Disciplina (Detalhado)</option>
+            <option value="turma" ${state.tipoRelatorio === 'turma' ? 'selected' : ''}>Frequência por Turma (Diário)</option>
+          </select>
         </div>
-        <div class="kpi-value">${totalAlunos}</div>
-        <div class="kpi-label">Alunos Ativos</div>
-      </div>
 
-      <div class="kpi-card orange">
-        <div class="kpi-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-          </svg>
-        </div>
-        <div class="kpi-value">${totalTurmas}</div>
-        <div class="kpi-label">Turmas</div>
-      </div>
+        <!-- Filtros Condicionais -->
+        ${renderFiltrosCondicionais(state, allAlunos, allTurmas, allNotas)}
 
-      <div class="kpi-card green">
-        <div class="kpi-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-          </svg>
-        </div>
-        <div class="kpi-value">${totalCursos}</div>
-        <div class="kpi-label">Cursos</div>
-      </div>
-
-      <div class="kpi-card blue">
-        <div class="kpi-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-            <path d="M2 17l10 5 10-5"/>
-            <path d="M2 12l10 5 10-5"/>
-          </svg>
-        </div>
-        <div class="kpi-value">${totalUnidades}</div>
-        <div class="kpi-label">Unidades</div>
       </div>
     </div>
 
-    <!-- Relatórios em Grid -->
-    <div class="grid grid-2" style="gap: var(--space-6); margin-bottom: var(--space-6);">
-      
-      <!-- Frequência por Turma -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="9 11 12 14 22 4"/>
-            </svg>
-            Frequência por Turma
-          </span>
-        </div>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Turma</th>
-                <th>Alunos</th>
-                <th>Aulas</th>
-                <th>Frequência</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${frequenciaPorTurma.length > 0 ? frequenciaPorTurma.map(item => {
-                const corBarra = item.percentual >= 75 ? 'var(--secondary-500)' : 'var(--danger-500)';
-                const corTexto = item.percentual >= 75 ? 'var(--secondary-400)' : 'var(--danger-400)';
-                return `
-                  <tr>
-                    <td>
-                      <strong>${eh(item.turmaNome)}</strong><br/>
-                      <span style="font-size: 11px; color: var(--text-tertiary);">${eh(item.cursoNome)}</span>
-                    </td>
-                    <td>${item.qtdAlunos}</td>
-                    <td>${item.qtdAulas}</td>
-                    <td>
-                      <div style="display: flex; align-items: center; gap: 8px;">
-                        <div class="progress-bar-container" style="width: 70px;">
-                          <div class="progress-bar-fill" style="width: ${item.percentual}%; background: ${corBarra};"></div>
-                        </div>
-                        <span style="font-size: 12px; font-weight: 700; color: ${corTexto};">${item.percentual}%</span>
-                      </div>
-                    </td>
-                  </tr>
-                `;
-              }).join('') : `
-                <tr>
-                  <td colspan="4" style="text-align: center; padding: 32px; color: var(--text-tertiary);">
-                    Nenhum dado de presença disponível.
-                  </td>
-                </tr>
-              `}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Notas por Disciplina -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-            </svg>
-            Desempenho por Disciplina
-          </span>
-        </div>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Disciplina</th>
-                <th>Média</th>
-                <th>Aprovados</th>
-                <th>Recuperação</th>
-                <th>Reprovados</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${relatorioNotas.length > 0 ? relatorioNotas.map(item => {
-                const badgeClass = item.media >= 7 ? 'grade-approved' : item.media >= 5 ? 'grade-recovery' : 'grade-failed';
-                return `
-                  <tr>
-                    <td><strong>${eh(item.disciplina)}</strong></td>
-                    <td>
-                      <span class="grade-badge ${badgeClass}">
-                        ${item.media.toFixed(1)}
-                      </span>
-                    </td>
-                    <td style="color: var(--secondary-400);">${item.aprovados}</td>
-                    <td style="color: var(--warning-400);">${item.recuperacao}</td>
-                    <td style="color: var(--danger-400);">${item.reprovados}</td>
-                  </tr>
-                `;
-              }).join('') : `
-                <tr>
-                  <td colspan="5" style="text-align: center; padding: 32px; color: var(--text-tertiary);">
-                    Nenhuma nota lançada ainda.
-                  </td>
-                </tr>
-              `}
-            </tbody>
-          </table>
-        </div>
-      </div>
+    <!-- View Rendering Box -->
+    <div id="relatorio-content-view">
+      ${renderContent(state, allTurmas, allAlunos, allCursos, allUnidades, allPresencas, allNotas, totalAlunos, totalTurmas, totalCursos, totalUnidades, frequenciaPorTurma, relatorioNotas, alunosFrequenciaBaixa)}
     </div>
-
-    <!-- Alunos com Baixa Frequência -->
-    ${alunosFrequenciaBaixa.length > 0 ? `
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title" style="color: var(--danger-400);">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-              <line x1="12" y1="9" x2="12" y2="13"/>
-              <line x1="12" y1="17" x2="12.01" y2="17"/>
-            </svg>
-            Alunos com Baixa Frequência (&lt;75%)
-          </span>
-          <span class="badge badge-danger">${alunosFrequenciaBaixa.length} alunos</span>
-        </div>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Aluno</th>
-                <th>Turma</th>
-                <th>Frequência</th>
-                <th>Ausências</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${alunosFrequenciaBaixa.map(aluno => `
-                <tr>
-                  <td><strong>${eh(aluno.nome)}</strong></td>
-                  <td>${eh(aluno.turma)}</td>
-                  <td>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <div class="progress-bar-container" style="width: 70px;">
-                        <div class="progress-bar-fill" style="width: ${aluno.percentual}%; background: var(--danger-500);"></div>
-                      </div>
-                      <span style="font-size: 12px; font-weight: 700; color: var(--danger-400);">${aluno.percentual}%</span>
-                    </div>
-                  </td>
-                  <td style="color: var(--danger-400);">${aluno.ausencias} faltas</td>
-                  <td><span class="badge badge-danger badge-dot">Crítico</span></td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    ` : ''}
   `;
 
-  // ── Event Listeners ──
-  
+  // ── Event Listeners Principais ──
+
+  // Mudar tipo de relatório
+  outlet.querySelector('#select-tipo-relatorio')?.addEventListener('change', (e) => {
+    window.relatoriosState.tipoRelatorio = e.target.value;
+    render(outlet);
+  });
+
+  // Filtros de Data
+  outlet.querySelector('#filtro-data-input')?.addEventListener('change', (e) => {
+    window.relatoriosState.filtroData = e.target.value;
+    render(outlet);
+  });
+
+  // Filtros de Seleção (Aluno, Turma, Disciplina)
+  outlet.querySelectorAll('.filtro-select-dinamico').forEach(sel => {
+    sel.addEventListener('change', (e) => {
+      const id = e.target.id;
+      if (id === 'select-aluno') window.relatoriosState.filtroAlunoId = e.target.value;
+      if (id === 'select-turma') window.relatoriosState.filtroTurmaId = e.target.value;
+      if (id === 'select-disciplina') window.relatoriosState.filtroDisciplina = e.target.value;
+      render(outlet);
+    });
+  });
+
+  // Filtros Checkbox do Geral
+  outlet.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+    checkbox.addEventListener('change', (e) => {
+      const id = e.target.id;
+      if (id === 'filter-kpis') window.relatoriosState.showKpis = e.target.checked;
+      if (id === 'filter-freq') window.relatoriosState.showFrequencia = e.target.checked;
+      if (id === 'filter-notas') window.relatoriosState.showNotas = e.target.checked;
+      if (id === 'filter-baixa') window.relatoriosState.showBaixaFrequencia = e.target.checked;
+
+      // Re-renderiza a página para aplicar os filtros
+      render(outlet);
+    });
+  });
+
   // Exportar CSV
   outlet.querySelector('#btn-exportar-csv')?.addEventListener('click', () => {
-    exportarCSV(frequenciaPorTurma);
+    const tableId = `export-table-${state.tipoRelatorio}`;
+    exportarAgregadosCSV(state, allAlunos, allTurmas, allNotas, allPresencas, frequenciaPorTurma, relatorioNotas);
   });
 
   // Imprimir / PDF
   outlet.querySelector('#btn-imprimir')?.addEventListener('click', () => {
-    exportarPDF(frequenciaPorTurma, relatorioNotas, alunosFrequenciaBaixa, totalAlunos, totalTurmas, totalCursos, totalUnidades);
+    exportarDinamicoPDF(state, totalAlunos, totalTurmas, totalCursos, totalUnidades, frequenciaPorTurma, relatorioNotas, alunosFrequenciaBaixa, allAlunos, allTurmas, allNotas, allPresencas);
   });
 }
 
-// ── Exportar PDF ─────────────────────────────────────────
-function exportarPDF(frequenciaPorTurma, relatorioNotas, alunosFrequenciaBaixa, totalAlunos, totalTurmas, totalCursos, totalUnidades) {
-  const hoje = new Date().toLocaleDateString('pt-BR');
+// ── Funções de Renderização dos Controles ─────────────────
+function renderFiltrosCondicionais(state, alunos, turmas, notas) {
+  if (state.tipoRelatorio === 'geral') {
+    return `
+      <div style="display: flex; gap: var(--space-4); margin-bottom: 8px; flex-wrap: wrap;">
+        <label class="form-check">
+          <input type="checkbox" id="filter-kpis" ${state.showKpis ? 'checked' : ''}>
+          <span>KPIs</span>
+        </label>
+        <label class="form-check">
+          <input type="checkbox" id="filter-freq" ${state.showFrequencia ? 'checked' : ''}>
+          <span>Frequência</span>
+        </label>
+        <label class="form-check">
+          <input type="checkbox" id="filter-notas" ${state.showNotas ? 'checked' : ''}>
+          <span>Desempenho</span>
+        </label>
+        <label class="form-check">
+          <input type="checkbox" id="filter-baixa" ${state.showBaixaFrequencia ? 'checked' : ''}>
+          <span>Baixa Freq.</span>
+        </label>
+      </div>
+    `;
+  }
 
-  const freqRows = frequenciaPorTurma.map(item => {
-    const cor = item.percentual >= 75 ? '#166534' : '#991b1b';
-    return `<tr>
-      <td><strong>${item.turmaNome}</strong><br/><small style="color:#6b7280">${item.cursoNome}</small></td>
-      <td style="text-align:center">${item.qtdAlunos}</td>
-      <td style="text-align:center">${item.qtdAulas}</td>
-      <td style="text-align:center">
-        <div style="display:flex;align-items:center;gap:8px;justify-content:center">
-          <div style="width:80px;height:8px;background:#e5e7eb;border-radius:4px">
-            <div style="width:${Math.min(item.percentual,100)}%;height:8px;background:${item.percentual>=75?'#16a34a':'#dc2626'};border-radius:4px"></div>
-          </div>
-          <span style="font-weight:700;color:${cor}">${item.percentual}%</span>
+  if (state.tipoRelatorio === 'data') {
+    return `
+      <div class="form-group" style="min-width: 180px;">
+        <label class="form-label">Data</label>
+        <input type="date" class="form-control" id="filtro-data-input" value="${eh(state.filtroData)}">
+      </div>
+    `;
+  }
+
+  if (state.tipoRelatorio === 'aluno') {
+    return `
+      <div class="form-group" style="min-width: 250px;">
+        <label class="form-label">Selecionar Aluno</label>
+        <select class="form-control filtro-select-dinamico" id="select-aluno">
+          <option value="">Selecione um aluno...</option>
+          ${alunos.map(a => `<option value="${a.id}" ${state.filtroAlunoId == a.id ? 'selected' : ''}>${eh(a.nome)}</option>`).join('')}
+        </select>
+      </div>
+    `;
+  }
+
+  if (state.tipoRelatorio === 'disciplina') {
+    const dMap = new Set();
+    notas.forEach(n => { if (n.disciplina) dMap.add(n.disciplina) });
+    const discs = Array.from(dMap).sort();
+
+    return `
+      <div class="form-group" style="min-width: 200px;">
+        <label class="form-label">Disciplina</label>
+        <select class="form-control filtro-select-dinamico" id="select-disciplina">
+          <option value="">Todas as Disciplinas</option>
+          ${discs.map(d => `<option value="${eh(d)}" ${state.filtroDisciplina === d ? 'selected' : ''}>${eh(d)}</option>`).join('')}
+        </select>
+      </div>
+    `;
+  }
+
+  if (state.tipoRelatorio === 'turma') {
+    return `
+      <div class="form-group" style="min-width: 250px;">
+        <label class="form-label">Turma (Diário de Classe)</label>
+        <select class="form-control filtro-select-dinamico" id="select-turma">
+          <option value="">Selecione uma turma...</option>
+          ${turmas.map(t => `<option value="${t.id}" ${state.filtroTurmaId == t.id ? 'selected' : ''}>${eh(t.nome)}</option>`).join('')}
+        </select>
+      </div>
+    `;
+  }
+  return '';
+}
+
+// ── Funções de Renderização Condicional de Conteúdo ───────
+function renderContent(state, allTurmas, allAlunos, allCursos, allUnidades, allPresencas, allNotas, totalAlunos, totalTurmas, totalCursos, totalUnidades, frequenciaPorTurma, relatorioNotas, alunosFrequenciaBaixa) {
+  if (state.tipoRelatorio === 'geral') {
+    return renderGeral(state, totalAlunos, totalTurmas, totalCursos, totalUnidades, frequenciaPorTurma, relatorioNotas, alunosFrequenciaBaixa);
+  }
+  if (state.tipoRelatorio === 'data') {
+    return renderPorData(state, allPresencas, allAlunos, allTurmas);
+  }
+  if (state.tipoRelatorio === 'aluno') {
+    return renderPorAluno(state, allAlunos, allTurmas, allPresencas, allNotas);
+  }
+  if (state.tipoRelatorio === 'disciplina') {
+    return renderPorDisciplina(state, allNotas, allAlunos, allTurmas);
+  }
+  if (state.tipoRelatorio === 'turma') {
+    return renderPorTurma(state, allTurmas, allAlunos, allPresencas);
+  }
+  return '<div class="empty-state"><p>Selecione um tipo de relatório.</p></div>';
+}
+
+function renderGeral(state, totalAlunos, totalTurmas, totalCursos, totalUnidades, frequenciaPorTurma, relatorioNotas, alunosFrequenciaBaixa) {
+  return `
+    ${state.showKpis ? `
+    <div class="kpi-grid" style="margin-bottom: var(--space-6);">
+      <div class="kpi-card"><div class="kpi-icon">■</div><div class="kpi-value">${totalAlunos}</div><div class="kpi-label">Alunos Ativos</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">■</div><div class="kpi-value">${totalTurmas}</div><div class="kpi-label">Turmas</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">■</div><div class="kpi-value">${totalCursos}</div><div class="kpi-label">Cursos</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">■</div><div class="kpi-value">${totalUnidades}</div><div class="kpi-label">Unidades</div></div>
+    </div>` : ''}
+
+    <div class="grid grid-2" style="gap: var(--space-6); margin-bottom: var(--space-6);">
+      ${state.showFrequencia ? `
+      <div class="card">
+        <div class="card-header"><span class="card-title">Frequência por Turma</span></div>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Turma</th><th>Aulas</th><th>Frequência</th></tr></thead>
+            <tbody>
+              ${frequenciaPorTurma.map(i => `<tr><td><strong>${eh(i.turmaNome)}</strong></td><td>${i.qtdAulas}</td><td>${i.percentual}%</td></tr>`).join('')}
+            </tbody>
+          </table>
         </div>
-      </td>
-    </tr>`;
-  }).join('');
+      </div>` : ''}
 
-  const notaRows = relatorioNotas.map(item => {
-    const cor = item.media >= 7 ? '#166534' : item.media >= 5 ? '#92400e' : '#991b1b';
+      ${state.showNotas ? `
+      <div class="card">
+        <div class="card-header"><span class="card-title">Desempenho por Disciplina</span></div>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Disciplina</th><th>Média</th><th>Aprovados</th><th>Reprovados</th></tr></thead>
+            <tbody>
+              ${relatorioNotas.map(i => `<tr><td><strong>${eh(i.disciplina)}</strong></td><td>${i.media}</td><td style="color:var(--secondary-500)">${i.aprovados}</td><td style="color:var(--danger-500)">${i.reprovados}</td></tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>` : ''}
+    </div>
+
+    ${state.showBaixaFrequencia ? `
+      <div class="card">
+        <div class="card-header"><span class="card-title" style="color:var(--danger-500)">Alunos Baixa Frequência (<75%)</span></div>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Aluno</th><th>Turma</th><th>Frequência</th><th>Ausências</th></tr></thead>
+            <tbody>
+              ${alunosFrequenciaBaixa.map(a => `<tr><td><strong>${eh(a.nome)}</strong></td><td>${eh(a.turma)}</td><td style="color:var(--danger-500)">${a.percentual}%</td><td>${a.ausencias} faltas</td></tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>` : ''}
+  `;
+}
+
+function renderPorData(state, allPresencas, allAlunos, allTurmas) {
+  if (!state.filtroData) return '<div class="empty-state"><p>Escolha uma data.</p></div>';
+
+  const registros = allPresencas.filter(p => p.data === state.filtroData);
+  if (registros.length === 0) return '<div class="empty-state"><p>Nenhuma chamada registrada nesta data.</p></div>';
+
+  return `
+    <div class="card">
+      <div class="card-header"><span class="card-title">Presença no dia ${formatDate(state.filtroData)}</span></div>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Aluno</th><th>Turma</th><th>Situação</th></tr></thead>
+          <tbody>
+            ${registros.map(r => {
+    const aluno = allAlunos.find(a => a.id === r.alunoId);
+    const turma = aluno ? allTurmas.find(t => t.id === aluno.turmaId) : null;
+    const statusSpan = r.presente
+      ? '<span style="color:var(--secondary-500); font-weight:700;">Presente</span>'
+      : '<span style="color:var(--danger-500); font-weight:700;">Ausente</span>';
+    return `<tr><td>${eh(aluno?.nome || '—')}</td><td>${eh(turma?.nome || '—')}</td><td>${statusSpan}</td></tr>`;
+  }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderPorAluno(state, allAlunos, allTurmas, allPresencas, allNotas) {
+  if (!state.filtroAlunoId) return '<div class="empty-state"><p>Selecione um aluno acima.</p></div>';
+
+  const aluno = allAlunos.find(a => a.id === state.filtroAlunoId);
+  const turma = allTurmas.find(t => t.id === aluno?.turmaId);
+  const pList = allPresencas.filter(p => p.alunoId === aluno.id);
+  const nList = allNotas.filter(n => n.alunoId === aluno.id);
+
+  const presencasNum = pList.filter(p => p.presente).length;
+  const faltasNum = pList.length - presencasNum;
+  const percFreq = pList.length > 0 ? ((presencasNum / pList.length) * 100).toFixed(1) : 100;
+
+  return `
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-body">
+        <h3 style="font-size:18px; margin-bottom: 8px;">${eh(aluno.nome)}</h3>
+        <p style="color:var(--text-secondary); margin-bottom: 16px;">Turma: ${eh(turma?.nome || '—')} &nbsp;|&nbsp; RA: ${aluno.matricula || 'N/A'}</p>
+        
+        <div style="display:flex; gap:24px;">
+          <div><strong>Aulas Registradas:</strong> ${pList.length}</div>
+          <div><strong>Presenças:</strong> ${presencasNum}</div>
+          <div><strong>Faltas:</strong> <span style="color:var(--danger-500)">${faltasNum}</span></div>
+          <div><strong>Frequência Acumulada:</strong> <span style="font-weight:700; ${percFreq < 75 ? 'color:var(--danger-500)' : ''}">${percFreq}%</span></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card">
+      <div class="card-header"><span class="card-title">Boletim Consolidado</span></div>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Disciplina</th><th>Nota</th><th>Referência</th></tr></thead>
+          <tbody>
+            ${nList.length === 0 ? '<tr><td colspan="3" style="text-align:center;">Nenhuma nota lançada.</td></tr>' :
+      nList.map(n => `<tr><td><strong>${eh(n.disciplina)}</strong></td><td>${n.nota}</td><td>${eh(n.referencia || '-')}</td></tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderPorDisciplina(state, allNotas, allAlunos, allTurmas) {
+  let nList = allNotas;
+  if (state.filtroDisciplina) nList = nList.filter(n => n.disciplina === state.filtroDisciplina);
+
+  if (nList.length === 0) return '<div class="empty-state"><p>Nenhuma nota encontrada para o filtro selecionado.</p></div>';
+
+  return `
+    <div class="card">
+      <div class="card-header"><span class="card-title">Notas: ${eh(state.filtroDisciplina || 'Todas as Disciplinas')}</span></div>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Aluno</th><th>Turma</th><th>Disciplina</th><th>Nota</th><th>Referência</th></tr></thead>
+          <tbody>
+            ${nList.map(n => {
+    const aluno = allAlunos.find(a => a.id === n.alunoId);
+    const turma = aluno ? allTurmas.find(t => t.id === aluno.turmaId) : null;
     return `<tr>
-      <td><strong>${item.disciplina}</strong></td>
-      <td style="text-align:center;font-weight:700;color:${cor}">${item.media.toFixed(1)}</td>
-      <td style="text-align:center;color:#166534">${item.aprovados}</td>
-      <td style="text-align:center;color:#b45309">${item.recuperacao}</td>
-      <td style="text-align:center;color:#991b1b">${item.reprovados}</td>
-    </tr>`;
-  }).join('');
+                <td>${eh(aluno?.nome || '—')}</td>
+                <td>${eh(turma?.nome || '—')}</td>
+                <td><strong>${eh(n.disciplina)}</strong></td>
+                <td>${n.nota}</td>
+                <td>${eh(n.referencia || '-')}</td>
+              </tr>`;
+  }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
 
-  const baixaRows = alunosFrequenciaBaixa.map(a => `<tr>
-    <td><strong>${a.nome}</strong></td>
-    <td>${a.turma}</td>
-    <td style="text-align:center;font-weight:700;color:#991b1b">${a.percentual}%</td>
-    <td style="text-align:center;color:#991b1b">${a.ausencias} faltas</td>
-  </tr>`).join('');
+function renderPorTurma(state, allTurmas, allAlunos, allPresencas) {
+  if (!state.filtroTurmaId) return '<div class="empty-state"><p>Selecione uma turma acima.</p></div>';
+
+  const turma = allTurmas.find(t => t.id === state.filtroTurmaId);
+  const alList = allAlunos.filter(a => a.turmaId === state.filtroTurmaId);
+  const pList = allPresencas.filter(p => alList.some(a => a.id === p.alunoId));
+
+  return `
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Diário Consolidado: ${eh(turma.nome)}</span>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Aluno</th><th>Aulas</th><th>Faltas</th><th>Frequência</th></tr></thead>
+          <tbody>
+            ${alList.map(a => {
+    const pAluno = pList.filter(p => p.alunoId === a.id);
+    const presentes = pAluno.filter(p => p.presente).length;
+    const freq = pAluno.length ? ((presentes / pAluno.length) * 100).toFixed(1) : 100;
+    return `<tr>
+                <td><strong>${eh(a.nome)}</strong></td>
+                <td>${pAluno.length}</td>
+                <td style="color:var(--danger-500)">${pAluno.length - presentes}</td>
+                <td style="font-weight:700; ${freq < 75 ? 'color:var(--danger-500)' : ''}">${freq}%</td>
+              </tr>`;
+  }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+// ── Exportar PDF Dinâmico ────────────────────────────────
+function exportarDinamicoPDF(state, totalAlunos, totalTurmas, totalCursos, totalUnidades, frequenciaPorTurma, relatorioNotas, alunosFrequenciaBaixa, allAlunos, allTurmas, allNotas, allPresencas) {
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  const viewHtml = document.getElementById('relatorio-content-view').innerHTML;
+
+  // Remover interatividades e simplificar SVG no print
+  let cleanHtml = viewHtml
+    .replace(/<button[^>]*>.*?<\/button>/g, '')
+    .replace(/<svg[^>]*>.*?<\/svg>/g, '')
+    .replace(/var\(--[a-zA-Z0-9-]+\)/g, '#333');
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -395,67 +527,29 @@ function exportarPDF(frequenciaPorTurma, relatorioNotas, alunosFrequenciaBaixa, 
   * { box-sizing:border-box; margin:0; padding:0; }
   body { font-family:'Segoe UI',Arial,sans-serif; font-size:13px; color:#111; background:#fff; padding:32px 40px; }
   h1 { font-size:22px; font-weight:700; color:#1e1b4b; margin-bottom:4px; }
-  .subtitle { font-size:12px; color:#6b7280; margin-bottom:24px; }
-  .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:24px; }
-  .kpi { text-align:center; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:14px; }
-  .kpi-val { font-size:28px; font-weight:700; color:#1e1b4b; }
-  .kpi-lbl { font-size:11px; text-transform:uppercase; color:#6b7280; margin-top:4px; }
-  .section { margin-bottom:28px; }
-  .section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em;
-    color:#6b7280; margin-bottom:10px; padding-bottom:6px; border-bottom:2px solid #e5e7eb; }
-  table { width:100%; border-collapse:collapse; }
-  th { background:#f3f4f6; padding:8px 12px; text-align:left; font-size:11px; font-weight:600;
-    text-transform:uppercase; letter-spacing:0.05em; color:#4b5563; border-bottom:2px solid #e5e7eb; }
+  .subtitle { font-size:12px; color:#6b7280; margin-bottom:24px; border-bottom:1px solid #ccc; padding-bottom:12px;}
+  table { width:100%; border-collapse:collapse; margin-bottom:24px;}
+  th { background:#f3f4f6; padding:8px 12px; text-align:left; font-size:11px; font-weight:600; border-bottom:2px solid #e5e7eb; }
   td { padding:8px 12px; border-bottom:1px solid #f3f4f6; }
-  tr:last-child td { border-bottom:none; }
-  .footer { margin-top:32px; padding-top:12px; border-top:1px solid #e5e7eb;
-    font-size:11px; color:#9ca3af; text-align:center; }
-  @media print { body { padding:16px; } @page { margin:10mm; } }
+  .card { margin-bottom: 24px; border: 1px solid #eee; border-radius: 8px; padding: 12px;}
+  .card-header { font-weight: bold; margin-bottom: 8px; font-size: 16px;}
+  .kpi-grid { display:flex; gap: 16px; margin-bottom: 24px;}
+  .kpi-card { padding: 12px; border: 1px solid #ccc; border-radius: 8px; flex:1; text-align:center;}
+  .kpi-value { font-size: 24px; font-weight: bold;}
+  @media print { body { padding:0; } }
 </style>
 </head>
 <body>
-  <h1>Relatórios — EduPresença</h1>
-  <div class="subtitle">Gerado em ${hoje}</div>
+  <h1>EduPresença — Relatório Expandido</h1>
+  <div class="subtitle">Gerado em ${hoje} | Filtro Ativo: ${state.tipoRelatorio.toUpperCase()}</div>
 
-  <div class="kpi-row">
-    <div class="kpi"><div class="kpi-val">${totalAlunos}</div><div class="kpi-lbl">Alunos Ativos</div></div>
-    <div class="kpi"><div class="kpi-val">${totalTurmas}</div><div class="kpi-lbl">Turmas</div></div>
-    <div class="kpi"><div class="kpi-val">${totalCursos}</div><div class="kpi-lbl">Cursos</div></div>
-    <div class="kpi"><div class="kpi-val">${totalUnidades}</div><div class="kpi-lbl">Unidades</div></div>
-  </div>
+  ${cleanHtml}
 
-  <div class="section">
-    <div class="section-title">Frequência por Turma</div>
-    <table>
-      <thead><tr><th>Turma / Curso</th><th>Alunos</th><th>Aulas</th><th>Frequência</th></tr></thead>
-      <tbody>${freqRows || '<tr><td colspan="4" style="text-align:center;color:#9ca3af;padding:20px">Sem dados.</td></tr>'}</tbody>
-    </table>
-  </div>
-
-  ${relatorioNotas.length > 0 ? `
-  <div class="section">
-    <div class="section-title">Desempenho por Disciplina</div>
-    <table>
-      <thead><tr><th>Disciplina</th><th>Média</th><th>Aprovados</th><th>Recuperação</th><th>Reprovados</th></tr></thead>
-      <tbody>${notaRows}</tbody>
-    </table>
-  </div>` : ''}
-
-  ${alunosFrequenciaBaixa.length > 0 ? `
-  <div class="section">
-    <div class="section-title" style="color:#991b1b">Alunos com Baixa Frequência (&lt;75%)</div>
-    <table>
-      <thead><tr><th>Aluno</th><th>Turma</th><th>Frequência</th><th>Ausências</th></tr></thead>
-      <tbody>${baixaRows}</tbody>
-    </table>
-  </div>` : ''}
-
-  <div class="footer">EduPresença — Relatório gerado automaticamente em ${hoje}</div>
+  <div style="margin-top:32px; padding-top:12px; border-top:1px solid #eee; font-size:11px; color:#999; text-align:center;">Gerado automaticamente pelo sistema EduPresença.</div>
   <script>window.onload = () => { window.print(); setTimeout(() => window.close(), 500); }<\/script>
 </body>
 </html>`;
 
-  const win = window.open('', '_blank', 'width=900,height=750');
   if (win) {
     win.document.write(html);
     win.document.close();
@@ -464,37 +558,71 @@ function exportarPDF(frequenciaPorTurma, relatorioNotas, alunosFrequenciaBaixa, 
   }
 }
 
-// ── Função para Exportar CSV ──
-function exportarCSV(dados) {
-  if (dados.length === 0) {
-    window.toast?.warning('Sem dados', 'Não há dados para exportar.');
-    return;
+// ── Exportar CSV Dinâmico ──
+function exportarAgregadosCSV(state, allAlunos, allTurmas, allNotas, allPresencas, freqTurma, notasDisc) {
+  let csvContent = "";
+
+  if (state.tipoRelatorio === 'geral') {
+    if (state.showFrequencia) {
+      csvContent += 'Turma,Alunos,Aulas,Frequência\n';
+      freqTurma.forEach(i => csvContent += `${i.turmaNome},${i.qtdAlunos},${i.qtdAulas},${i.percentual}%\n`);
+      csvContent += '\n';
+    }
+    if (state.showNotas) {
+      csvContent += 'Disciplina,Media,Aprovados,Reprovados\n';
+      notasDisc.forEach(i => csvContent += `${i.disciplina},${i.media},${i.aprovados},${i.reprovados}\n`);
+    }
   }
 
-  const headers = ['Turma', 'Curso', 'Alunos', 'Aulas', 'Presentes', 'Ausentes', 'Frequência (%)'];
-  const linhas = dados.map(item => [
-    item.turmaNome,
-    item.cursoNome,
-    item.qtdAlunos,
-    item.qtdAulas,
-    item.totalPresentes,
-    item.totalAusentes,
-    item.percentual
-  ]);
+  else if (state.tipoRelatorio === 'data' && state.filtroData) {
+    csvContent += `Presencas (${state.filtroData})\n`;
+    csvContent += 'Aluno,Turma,Situacao\n';
+    allPresencas.filter(p => p.data === state.filtroData).forEach(p => {
+      const a = allAlunos.find(x => x.id === p.alunoId);
+      const t = a ? allTurmas.find(x => x.id === a.turmaId) : null;
+      csvContent += `${a?.nome || '?'},${t?.nome || '?'},${p.presente ? 'Presente' : 'Ausente'}\n`;
+    });
+  }
 
-  let csvContent = headers.join(',') + '\n';
-  linhas.forEach(linha => {
-    csvContent += linha.join(',') + '\n';
-  });
+  else if (state.tipoRelatorio === 'aluno' && state.filtroAlunoId) {
+    const a = allAlunos.find(x => x.id === state.filtroAlunoId);
+    csvContent += `Boletim de ${a?.nome}\nDisciplina,Nota\n`;
+    allNotas.filter(n => n.alunoId === state.filtroAlunoId).forEach(n => {
+      csvContent += `${n.disciplina},${n.nota}\n`;
+    });
+  }
+
+  else if (state.tipoRelatorio === 'disciplina' && state.filtroDisciplina) {
+    csvContent += `Notas - ${state.filtroDisciplina}\nAluno,Turma,Nota\n`;
+    allNotas.filter(n => n.disciplina === state.filtroDisciplina).forEach(n => {
+      const a = allAlunos.find(x => x.id === n.alunoId);
+      const t = a ? allTurmas.find(x => x.id === a.turmaId) : null;
+      csvContent += `${a?.nome || '?'},${t?.nome || '?'},${n.nota}\n`;
+    });
+  }
+
+  else if (state.tipoRelatorio === 'turma' && state.filtroTurmaId) {
+    csvContent += `Frequencia da Turma\nAluno,Presencas\n`;
+    allAlunos.filter(a => a.turmaId === state.filtroTurmaId).forEach(a => {
+      const p = allPresencas.filter(x => x.alunoId === a.id);
+      const press = p.filter(x => x.presente).length;
+      csvContent += `${a.nome},${press}/${p.length}\n`;
+    });
+  }
+
+  if (!csvContent) {
+    window.toast?.warning('Sem dados', 'Nenhum dado selecionado para exportar.');
+    return;
+  }
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
-  
+
   link.setAttribute('href', url);
-  link.setAttribute('download', `relatorio-frequencia-${new Date().toISOString().split('T')[0]}.csv`);
+  link.setAttribute('download', `relatorio-${state.tipoRelatorio}-${new Date().toISOString().split('T')[0]}.csv`);
   link.style.visibility = 'hidden';
-  
+
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

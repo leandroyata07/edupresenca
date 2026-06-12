@@ -2,7 +2,7 @@
 // EduPresença v2 – App Entry Point
 // =========================================================
 import { Router } from './router.js';
-import { seedIfEmpty, auth, config, alunos, presencas, turmas, isSyncUser, forceSync } from './store.js';
+import { seedIfEmpty, auth, config, alunos, presencas, turmas, isSyncUser, forceSync, startChangeListener } from './store.js';
 import { renderLogin } from './pages/login.js';
 import './components/sidebar.js';
 import './components/header.js';
@@ -385,6 +385,57 @@ function startApp(user) {
                 console.warn('[Startup Sync] Falha na sincronização em segundo plano:', e);
             }
         }, 1000); // 1 segundo de atraso para a UI estabilizar primeiro
+
+        // Inicia o listener de alterações em tempo real para notificações instantâneas
+        // quando outro usuário (ex: Admin) salvar dados no Firebase
+        startChangeListener(user.email);
+
+        // Reage ao evento de mudança remota: mostra toast com botão "Atualizar Agora"
+        window.addEventListener('edu-remote-change', async (e) => {
+            const detail = e.detail || {};
+            const affectedUserEmail = detail.affectedUserEmail || null;
+            const isUserProfileChange = !!affectedUserEmail;
+
+            // Se é uma mudança de perfil de usuário específico:
+            // só notifica o usuário afetado — outros não recebem nada
+            if (isUserProfileChange) {
+                const currentUser = auth.currentUser();
+                if (!currentUser || currentUser.email !== affectedUserEmail) {
+                    return; // Silencioso para quem não foi afetado
+                }
+            }
+
+            const keyLabel    = _getRemoteChangeLabel(detail.key);
+            const authorName  = detail.changedByName || 'O Administrador';
+            const title       = isUserProfileChange
+                ? '👤 Seu perfil foi atualizado'
+                : '📡 Dados atualizados na nuvem';
+            const message     = isUserProfileChange
+                ? `${authorName} atualizou o seu perfil. Clique para carregar as mudanças.`
+                : `${authorName} atualizou: ${keyLabel}. Clique para carregar as mudanças.`;
+
+            window.toast?.showWithAction({
+                type: 'info',
+                title,
+                message,
+                duration: 12000,
+                actionLabel: 'Atualizar Agora',
+                onAction: async () => {
+                    try {
+                        await forceSync();
+                        const currentPath = location.pathname.replace(
+                            location.pathname.includes('/edupresenca') ? '/edupresenca' : '',
+                            ''
+                        ) || '/';
+                        window.app?.router?.replace?.(currentPath);
+                        window.toast?.success('Atualizado!', 'Os dados mais recentes foram carregados.');
+                    } catch (_err) {
+                        window.toast?.error('Erro', 'Não foi possível atualizar. Tente Forçar Atualização.');
+                    }
+                }
+            });
+        });
+
     }
 
     // Busca global Ctrl+K
@@ -395,6 +446,22 @@ function startApp(user) {
 
     console.log('%cEduPresença 1.0.2', 'color:#fbbf24;font-size:16px;font-weight:700;');
 }
+
+// Traduz a chave interna do Firestore para um nome legível
+function _getRemoteChangeLabel(key = '') {
+    if (key.includes('edu_usuarios'))    return 'Perfis de usuários';
+    if (key.includes('edu_alunos'))      return 'Lista de alunos';
+    if (key.includes('edu_turmas'))      return 'Turmas';
+    if (key.includes('edu_presencas'))   return 'Registros de presença';
+    if (key.includes('edu_notas'))       return 'Notas';
+    if (key.includes('edu_disciplinas')) return 'Disciplinas';
+    if (key.includes('edu_cursos'))      return 'Cursos';
+    if (key.includes('edu_unidades'))    return 'Unidades';
+    if (key.includes('edu_turnos'))      return 'Turnos';
+    if (key.includes('edu_horarios'))    return 'Quadro de horários';
+    return 'Dados do sistema';
+}
+
 
 // ── Frequência Badge ─────────────────────────────────────
 function updateFreqBadge() {

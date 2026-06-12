@@ -100,6 +100,12 @@ async function uploadBase64ToStorage(base64Str, path) {
 // Queue for serializing syncs to prevent race conditions with Firebase Storage
 const syncQueue = {};
 
+// Handle do listener em tempo real de alterações remotas
+let _changeListenerUnsub = null;
+
+// Rastreia qual usuário específico foi modificado para notificações direcionadas
+let _lastModifiedUserEmail = null;
+
 export async function awaitPendingSyncs() {
     const promises = Object.values(syncQueue);
     if (promises.length > 0) {
@@ -162,6 +168,31 @@ export async function triggerCloudSync(key, data, isObj = false) {
             await Promise.race([setTask, setTimeoutPromise]);
 
             console.log(`Cloud Sync OK: ${finalKey}`);
+
+            // Notifica outros dispositivos conectados sobre a alteração em tempo real
+            // Ignora chaves de sistema que não são relevantes para outros usuários
+            const skipNotifKeys = ['edu_logs', 'edu_config'];
+            if (!skipNotifKeys.some(k => finalKey.includes(k))) {
+                try {
+                    const session = (() => { try { return JSON.parse(sessionStorage.getItem(SESSION_KEY)); } catch { return null; } })();
+                    // Para edu_usuarios: inclui o email do usuário afetado para notificações direcionadas
+                    const affectedUserEmail = (key === KEYS.usuarios && _lastModifiedUserEmail)
+                        ? _lastModifiedUserEmail
+                        : null;
+                    // Reseta imediatamente após capturar para evitar vazamento entre syncs
+                    _lastModifiedUserEmail = null;
+                    db.collection('edupresenca_sync')
+                        .doc('admin@leandroyata.com.br')
+                        .collection('_notifications')
+                        .add({
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                            changedBy: session?.email || 'Administrador',
+                            changedByName: session?.nome || 'Administrador',
+                            key: finalKey,
+                            affectedUserEmail, // null para chaves não relacionadas a usuários
+                        }).catch(() => {}); // Silencioso — não bloqueia o fluxo principal
+                } catch (_e) {}
+            }
         } catch (e) {
             console.error(`Erro na sincronização em nuvem da tabela ${key}:`, e);
             // Show toast only for permission errors or explicit failures, to avoid spam
@@ -297,6 +328,48 @@ export async function forceSync() {
     return syncFromCloud(true, true);
 }
 
+// ── Listener de alterações em tempo real ────────────────────────────────
+// Inicia um listener Firestore (onSnapshot) que detecta quando OUTRO usuário
+// (ex: Administrador) salva dados, e dispara um evento para notificar a UI.
+export function startChangeListener(currentUserEmail) {
+    // Encerra listener anterior se existir
+    if (_changeListenerUnsub) {
+        _changeListenerUnsub();
+        _changeListenerUnsub = null;
+    }
+    if (!isSyncUser()) return;
+    if (typeof firebase === 'undefined' || !firebase.firestore) return;
+
+    try {
+        const db = firebase.firestore();
+        // Usa o timestamp atual como ponto de partida: só notifica mudanças
+        // que ocorrerem APÓS o usuário ter feito login neste dispositivo
+        const startTimestamp = firebase.firestore.Timestamp.now();
+
+        _changeListenerUnsub = db.collection('edupresenca_sync')
+            .doc('admin@leandroyata.com.br')
+            .collection('_notifications')
+            .where('timestamp', '>', startTimestamp)
+            .orderBy('timestamp', 'desc')
+            .onSnapshot(snapshot => {
+                snapshot.docChanges().forEach(change => {
+                    if (change.type !== 'added') return;
+                    const data = change.doc.data();
+                    // Não notifica o próprio usuário que fez a alteração
+                    if (data.changedBy === currentUserEmail) return;
+                    // Dispara evento global que a UI (app.js) irá capturar
+                    window.dispatchEvent(new CustomEvent('edu-remote-change', { detail: data }));
+                });
+            }, err => {
+                console.warn('[ChangeListener] Listener encerrado:', err.message);
+            });
+
+        console.log(`[ChangeListener] Escutando alterações em tempo real como ${currentUserEmail}`);
+    } catch (e) {
+        console.warn('[ChangeListener] Não foi possível iniciar o listener:', e.message);
+    }
+}
+
 export async function pushAllToCloud() {
     if (!isSyncUser()) return;
     if (typeof firebase === 'undefined' || !firebase.firestore) return;
@@ -348,6 +421,10 @@ function createStore(key) {
         create: (data) => {
             const items = load(key);
             const item = { ...data, id: uid(), createdAt: new Date().toISOString() };
+            // Captura o email do usuário afetado para notificações direcionadas
+            if (key === KEYS.usuarios && data.email) {
+                _lastModifiedUserEmail = data.email;
+            }
             items.push(item);
             save(key, items);
             return item;
@@ -356,13 +433,22 @@ function createStore(key) {
             const items = load(key);
             const idx = items.findIndex(i => i.id === id);
             if (idx === -1) return null;
+            // Captura o email do usuário afetado (usa o email do item atualizado ou do existente)
+            if (key === KEYS.usuarios) {
+                _lastModifiedUserEmail = data.email || items[idx]?.email || null;
+            }
             items[idx] = { ...items[idx], ...data, updatedAt: new Date().toISOString() };
             save(key, items);
             return items[idx];
         },
         delete: (id) => {
-            const items = load(key).filter(i => i.id !== id);
-            save(key, items);
+            const items = load(key);
+            // Captura o email do usuário que será removido
+            if (key === KEYS.usuarios) {
+                const target = items.find(i => i.id === id);
+                _lastModifiedUserEmail = target?.email || null;
+            }
+            save(key, items.filter(i => i.id !== id));
         },
         restore: (item) => {
             const items = load(key);
@@ -650,6 +736,11 @@ export const auth = {
         sessionStorage.removeItem(SESSION_KEY);
         sessionStorage.removeItem('edu_trial_start');
         sessionStorage.removeItem('edu_cloud_warn_shown');
+        // Encerra o listener de alterações em tempo real ao fazer logout
+        if (_changeListenerUnsub) {
+            _changeListenerUnsub();
+            _changeListenerUnsub = null;
+        }
         try {
             document.getElementById('trial-banner')?.remove();
         } catch (e) {}

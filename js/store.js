@@ -170,28 +170,27 @@ export async function triggerCloudSync(key, data, isObj = false) {
             console.log(`Cloud Sync OK: ${finalKey}`);
 
             // Notifica outros dispositivos conectados sobre a alteração em tempo real
-            // Usa tabelas/_lastUpdate (mesmo caminho já autorizado pelas Firestore rules)
+            // Ignora chaves de sistema que não são relevantes para outros usuários
             const skipNotifKeys = ['edu_logs', 'edu_config'];
             if (!skipNotifKeys.some(k => finalKey.includes(k))) {
                 try {
                     const session = (() => { try { return JSON.parse(sessionStorage.getItem(SESSION_KEY)); } catch { return null; } })();
+                    // Para edu_usuarios: inclui o email do usuário afetado para notificações direcionadas
                     const affectedUserEmail = (key === KEYS.usuarios && _lastModifiedUserEmail)
                         ? _lastModifiedUserEmail
                         : null;
+                    // Reseta imediatamente após capturar para evitar vazamento entre syncs
                     _lastModifiedUserEmail = null;
-                    // Sobrescreve o mesmo documento (_lastUpdate) a cada alteração
-                    // O onSnapshot dos outros dispositivos dispara automaticamente
                     db.collection('edupresenca_sync')
                         .doc('admin@leandroyata.com.br')
-                        .collection('tabelas')
-                        .doc('_lastUpdate')
-                        .set({
+                        .collection('_notifications')
+                        .add({
                             timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                             changedBy: session?.email || 'Administrador',
                             changedByName: session?.nome || 'Administrador',
                             key: finalKey,
-                            affectedUserEmail: affectedUserEmail || null,
-                        }).catch(() => {});
+                            affectedUserEmail, // null para chaves não relacionadas a usuários
+                        }).catch(() => {}); // Silencioso — não bloqueia o fluxo principal
                 } catch (_e) {}
             }
         } catch (e) {
@@ -259,8 +258,6 @@ export async function syncFromCloud(showErrorToast = false, forceNetwork = false
         const downloadedKeys = new Set();
         tablesSnapshot.forEach(doc => {
             const finalKey = doc.id;
-            // Ignora documentos de metadados internos (ex: _lastUpdate)
-            if (finalKey.startsWith('_')) return;
             const data = doc.data();
             downloadedKeys.add(finalKey);
             
@@ -335,6 +332,7 @@ export async function forceSync() {
 // Inicia um listener Firestore (onSnapshot) que detecta quando OUTRO usuário
 // (ex: Administrador) salva dados, e dispara um evento para notificar a UI.
 export function startChangeListener(currentUserEmail) {
+    // Encerra listener anterior se existir
     if (_changeListenerUnsub) {
         _changeListenerUnsub();
         _changeListenerUnsub = null;
@@ -344,28 +342,24 @@ export function startChangeListener(currentUserEmail) {
 
     try {
         const db = firebase.firestore();
-        let firstSnapshot = true; // Ignora o estado inicial do documento
+        // Usa o timestamp atual como ponto de partida: só notifica mudanças
+        // que ocorrerem APÓS o usuário ter feito login neste dispositivo
+        const startTimestamp = firebase.firestore.Timestamp.now();
 
-        // Escuta o documento _lastUpdate dentro de tabelas/ (mesmo caminho autorizado)
-        // Quando o Admin salva qualquer dado, esse documento é sobrescrito
-        // e o onSnapshot dispara instantaneamente em todos os outros dispositivos
         _changeListenerUnsub = db.collection('edupresenca_sync')
             .doc('admin@leandroyata.com.br')
-            .collection('tabelas')
-            .doc('_lastUpdate')
-            .onSnapshot(docSnapshot => {
-                // Ignora o primeiro disparo (carregamento inicial do documento)
-                if (firstSnapshot) {
-                    firstSnapshot = false;
-                    return;
-                }
-                if (!docSnapshot.exists) return;
-                const data = docSnapshot.data();
-                if (!data) return;
-                // Não notifica o próprio usuário que fez a alteração
-                if (data.changedBy === currentUserEmail) return;
-                // Dispara evento global que app.js captura para exibir o toast
-                window.dispatchEvent(new CustomEvent('edu-remote-change', { detail: data }));
+            .collection('_notifications')
+            .where('timestamp', '>', startTimestamp)
+            .orderBy('timestamp', 'desc')
+            .onSnapshot(snapshot => {
+                snapshot.docChanges().forEach(change => {
+                    if (change.type !== 'added') return;
+                    const data = change.doc.data();
+                    // Não notifica o próprio usuário que fez a alteração
+                    if (data.changedBy === currentUserEmail) return;
+                    // Dispara evento global que a UI (app.js) irá capturar
+                    window.dispatchEvent(new CustomEvent('edu-remote-change', { detail: data }));
+                });
             }, err => {
                 console.warn('[ChangeListener] Listener encerrado:', err.message);
             });

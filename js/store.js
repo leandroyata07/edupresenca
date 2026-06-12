@@ -209,17 +209,20 @@ function updateLocalFotoUrl(key, id, remoteUrl) {
     }
 }
 
-export async function syncFromCloud(showErrorToast = false) {
+export async function syncFromCloud(showErrorToast = false, forceNetwork = false) {
     if (!isSyncUser()) return;
     if (typeof firebase === 'undefined' || !firebase.firestore) return;
     
     try {
-        console.log('Iniciando sincronização a partir do Firebase Firestore...');
+        console.log(`Iniciando sincronização a partir do Firebase Firestore... (forceNetwork=${forceNetwork})`);
         const db = firebase.firestore();
+        // Quando forceNetwork=true, ignora o cache local do Firestore e busca direto da rede
+        // Isso é crítico para garantir que edições feitas em outros dispositivos apareçam
+        const getOptions = forceNetwork ? { source: 'server' } : {};
         const tablesSnapshot = await db.collection('edupresenca_sync')
             .doc('admin@leandroyata.com.br')
             .collection('tabelas')
-            .get();
+            .get(getOptions);
             
         const downloadedKeys = new Set();
         tablesSnapshot.forEach(doc => {
@@ -286,6 +289,12 @@ export async function syncFromCloud(showErrorToast = false) {
             }
         }
     }
+}
+
+// Sincronização forçada da rede — ignora completamente o cache local do Firestore
+// Use este método quando é necessário garantir que dados de outros dispositivos sejam baixados
+export async function forceSync() {
+    return syncFromCloud(true, true);
 }
 
 export async function pushAllToCloud() {

@@ -1,7 +1,7 @@
 // =========================================================
 // EduPresença – <app-sidebar> Web Component
 // =========================================================
-import { getAnoLetivo, setAnoLetivo } from '../store.js';
+import { getAnoLetivo, setAnoLetivo, forceSync, isSyncUser } from '../store.js';
 import { showConfirm } from '../utils.js';
 
 const NAV_ITEMS = [
@@ -640,7 +640,7 @@ class AppSidebar extends HTMLElement {
       }
       const confirmed = await showConfirm(modal, {
         title: 'Atualizar Sistema',
-        message: '<span style="display:block; text-align:justify;">Deseja forçar a atualização do sistema? Isso limpará o cache local de arquivos e recarregará a página. Nenhum de seus dados salvos será apagado.</span>',
+        message: '<span style="display:block; text-align:justify;">Deseja forçar a atualização do sistema? Isso baixará os dados mais recentes da nuvem, limpará o cache local e recarregará a página.</span>',
         confirmText: 'Sim, atualizar',
         cancelText: 'Cancelar',
         type: 'primary'
@@ -648,6 +648,21 @@ class AppSidebar extends HTMLElement {
       if (!confirmed) return;
 
       try {
+        // 1. Se usuário tem sync ativo, baixa dados frescos da nuvem ANTES de recarregar
+        if (isSyncUser() && typeof firebase !== 'undefined' && firebase.firestore) {
+          window.toast?.info('Sincronizando...', 'Baixando dados atualizados da nuvem. Aguarde.');
+          try {
+            await forceSync();
+            window.toast?.success('Dados atualizados!', 'Sincronização concluída. Recarregando...');
+          } catch (syncErr) {
+            console.warn('Falha na sincronização antes do reload:', syncErr);
+            window.toast?.warning('Atenção', 'Não foi possível sincronizar com a nuvem, mas o sistema será atualizado mesmo assim.');
+          }
+          // Aguarda o toast ser visível antes de recarregar
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+
+        // 2. Limpa o cache do Service Worker
         if ('serviceWorker' in navigator) {
           const registrations = await navigator.serviceWorker.getRegistrations();
           for (const registration of registrations) {

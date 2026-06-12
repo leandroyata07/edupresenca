@@ -2,7 +2,7 @@
 // EduPresença v2 – App Entry Point
 // =========================================================
 import { Router } from './router.js';
-import { seedIfEmpty, auth, config, alunos, presencas, turmas, isSyncUser } from './store.js';
+import { seedIfEmpty, auth, config, alunos, presencas, turmas, isSyncUser, forceSync } from './store.js';
 import { renderLogin } from './pages/login.js';
 import './components/sidebar.js';
 import './components/header.js';
@@ -368,6 +368,24 @@ function startApp(user) {
     };
 
     document.getElementById('page-loading')?.remove();
+
+    // Sincronização forçada em segundo plano: garante que dados de outros dispositivos
+    // aparecem após F5, Forçar Atualização ou qualquer acesso ao sistema
+    if (isSyncUser()) {
+        setTimeout(async () => {
+            try {
+                await forceSync();
+                // Re-renderiza a página atual para refletir os dados recém-baixados
+                const currentPath = location.pathname.replace(
+                    location.pathname.includes('/edupresenca') ? '/edupresenca' : '',
+                    ''
+                ) || '/';
+                window.app?.router?.replace?.(currentPath);
+            } catch (e) {
+                console.warn('[Startup Sync] Falha na sincronização em segundo plano:', e);
+            }
+        }, 1000); // 1 segundo de atraso para a UI estabilizar primeiro
+    }
 
     // Busca global Ctrl+K
     initSearch();

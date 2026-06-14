@@ -135,6 +135,34 @@ class AppHeader extends HTMLElement {
           flex-shrink: 0;
         }
 
+        /* ── Sync Status Button ── */
+        #sync-status-btn {
+          position: relative;
+          color: var(--text-tertiary);
+          transition: color 0.2s;
+        }
+        #sync-status-btn.pending {
+          color: #f59e0b;
+          animation: syncPulse 1.8s ease-in-out infinite;
+        }
+        #sync-status-btn.ok {
+          color: #10b981;
+        }
+        .sync-dot {
+          position: absolute;
+          top: 5px; right: 5px;
+          width: 7px; height: 7px;
+          border-radius: 50%;
+          background: #f59e0b;
+          border: 1.5px solid var(--bg-surface, #fff);
+          display: none;
+        }
+        #sync-status-btn.pending .sync-dot { display: block; }
+        @keyframes syncPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.45; }
+        }
+
         .header-btn {
           display: flex;
           align-items: center;
@@ -411,6 +439,18 @@ class AppHeader extends HTMLElement {
           <!-- Icon injected by JS -->
         </button>
 
+        <div class="divider"></div>
+
+        <!-- Sync Status Indicator -->
+        <button class="header-btn" id="sync-status-btn" title="Sincronização em dia" aria-label="Status de sincronização com a nuvem" style="display:none;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"/>
+            <polyline points="1 20 1 14 7 14"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+          <span class="sync-dot"></span>
+        </button>
+
         <!-- Divider -->
         <div class="divider"></div>
 
@@ -537,6 +577,29 @@ class AppHeader extends HTMLElement {
       }
     };
     document.addEventListener('keydown', this._onKeyDown);
+
+    // ── Sync Status Listener ──
+    const syncBtn = this.shadowRoot.getElementById('sync-status-btn');
+    this._onSyncStatus = (e) => {
+      if (!syncBtn) return;
+      const pending = e.detail?.pending ?? 0;
+      syncBtn.style.display = 'flex';
+      if (pending > 0) {
+        syncBtn.classList.add('pending');
+        syncBtn.classList.remove('ok');
+        syncBtn.title = `${pending} tabela(s) aguardando sincronização. Tentando reenviar automaticamente...`;
+      } else {
+        syncBtn.classList.remove('pending');
+        syncBtn.classList.add('ok');
+        syncBtn.title = 'Sincronização em dia ✅';
+        // Hide the ok state after 5 seconds
+        setTimeout(() => {
+          syncBtn.style.display = 'none';
+          syncBtn.classList.remove('ok');
+        }, 5000);
+      }
+    };
+    document.addEventListener('sync-status', this._onSyncStatus);
   }
 
   _openNotifications() {

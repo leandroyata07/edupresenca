@@ -100,11 +100,54 @@ async function uploadBase64ToStorage(base64Str, path) {
 // Queue for serializing syncs to prevent race conditions with Firebase Storage
 const syncQueue = {};
 
-// Handle do listener em tempo real de alterações remotas
-let _changeListenerUnsub = null;
+// ── Pending Sync Retry Queue (B2+B3 implementation) ─────────────────────────
+// Stores failed Firestore syncs for automatic retry every 30 seconds.
+// Dispatches 'sync-status' events so the header can show/hide the indicator.
+const pendingSyncQueue = new Map(); // key → { key, data, isObj }
+let syncRetryTimer = null;
 
-// Rastreia qual usuário específico foi modificado para notificações direcionadas
-let _lastModifiedUserEmail = null;
+function dispatchSyncStatus() {
+    const count = pendingSyncQueue.size;
+    document.dispatchEvent(new CustomEvent('sync-status', { detail: { pending: count } }));
+}
+
+function scheduleSyncRetry() {
+    if (syncRetryTimer) return; // already scheduled
+    syncRetryTimer = setInterval(async () => {
+        if (pendingSyncQueue.size === 0) {
+            clearInterval(syncRetryTimer);
+            syncRetryTimer = null;
+            return;
+        }
+        if (typeof firebase === 'undefined' || !firebase.firestore) return;
+        console.log(`[SyncRetry] Tentando reenviar ${pendingSyncQueue.size} item(s) pendente(s)...`);
+        const entries = [...pendingSyncQueue.entries()];
+        for (const [key, item] of entries) {
+            try {
+                const db = firebase.firestore();
+                const finalKey = getStoreKey(key);
+                const setTask = db.collection('edupresenca_sync')
+                    .doc('admin@leandroyata.com.br')
+                    .collection('tabelas')
+                    .doc(finalKey)
+                    .set(item.isObj ? item.data : { items: item.data });
+                const timeout = new Promise((_, r) => setTimeout(() => r(new Error('Timeout')), 10000));
+                await Promise.race([setTask, timeout]);
+                pendingSyncQueue.delete(key);
+                console.log(`[SyncRetry] Reenvio OK: ${finalKey}`);
+            } catch (e) {
+                console.warn(`[SyncRetry] Falhou novamente: ${key}`, e.message);
+            }
+        }
+        dispatchSyncStatus();
+        if (pendingSyncQueue.size === 0) {
+            clearInterval(syncRetryTimer);
+            syncRetryTimer = null;
+            // Notify header: all synced
+            if (window.toast) window.toast.success('Sincronizado ✅', 'Todas as alterações foram enviadas para a nuvem.');
+        }
+    }, 30000);
+}
 
 export async function awaitPendingSyncs() {
     const promises = Object.values(syncQueue);
@@ -169,35 +212,30 @@ export async function triggerCloudSync(key, data, isObj = false) {
 
             console.log(`Cloud Sync OK: ${finalKey}`);
 
-            // Notifica outros dispositivos conectados sobre a alteração em tempo real
-            // Ignora chaves de sistema que não são relevantes para outros usuários
-            const skipNotifKeys = ['edu_logs', 'edu_config'];
-            if (!skipNotifKeys.some(k => finalKey.includes(k))) {
-                try {
-                    const session = (() => { try { return JSON.parse(sessionStorage.getItem(SESSION_KEY)); } catch { return null; } })();
-                    // Para edu_usuarios: inclui o email do usuário afetado para notificações direcionadas
-                    const affectedUserEmail = (key === KEYS.usuarios && _lastModifiedUserEmail)
-                        ? _lastModifiedUserEmail
-                        : null;
-                    // Reseta imediatamente após capturar para evitar vazamento entre syncs
-                    _lastModifiedUserEmail = null;
-                    db.collection('edupresenca_sync')
-                        .doc('admin@leandroyata.com.br')
-                        .collection('_notifications')
-                        .add({
-                            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                            changedBy: session?.email || 'Administrador',
-                            changedByName: session?.nome || 'Administrador',
-                            key: finalKey,
-                            affectedUserEmail, // null para chaves não relacionadas a usuários
-                        }).catch(() => {}); // Silencioso — não bloqueia o fluxo principal
-                } catch (_e) {}
+            // If this key was in the retry queue, remove it
+            if (pendingSyncQueue.has(key)) {
+                pendingSyncQueue.delete(key);
+                dispatchSyncStatus();
+                if (pendingSyncQueue.size === 0) {
+                    clearInterval(syncRetryTimer);
+                    syncRetryTimer = null;
+                    if (window.toast) window.toast.success('Sincronizado ✅', 'Todas as alterações foram enviadas para a nuvem.');
+                }
             }
         } catch (e) {
             console.error(`Erro na sincronização em nuvem da tabela ${key}:`, e);
-            // Show toast only for permission errors or explicit failures, to avoid spam
+            // Permission errors are always shown
             if (e.code === 'permission-denied' && key !== KEYS.logs) {
                 window.toast?.error('Permissão Negada', 'Você não tem permissão para salvar alterações na nuvem.');
+                return;
+            }
+            // Network/timeout errors: add to retry queue and signal header
+            const isNetworkError = !e.code || e.message?.includes('Timeout') || e.code === 'unavailable' || e.code === 'deadline-exceeded';
+            if (isNetworkError) {
+                // Store the original (pre-image-upload) data snapshot for retry
+                pendingSyncQueue.set(key, { key, data: JSON.parse(JSON.stringify(data)), isObj });
+                dispatchSyncStatus();
+                scheduleSyncRetry();
             }
         }
     };
@@ -240,20 +278,17 @@ function updateLocalFotoUrl(key, id, remoteUrl) {
     }
 }
 
-export async function syncFromCloud(showErrorToast = false, forceNetwork = false) {
+export async function syncFromCloud(showErrorToast = false) {
     if (!isSyncUser()) return;
     if (typeof firebase === 'undefined' || !firebase.firestore) return;
     
     try {
-        console.log(`Iniciando sincronização a partir do Firebase Firestore... (forceNetwork=${forceNetwork})`);
+        console.log('Iniciando sincronização a partir do Firebase Firestore...');
         const db = firebase.firestore();
-        // Quando forceNetwork=true, ignora o cache local do Firestore e busca direto da rede
-        // Isso é crítico para garantir que edições feitas em outros dispositivos apareçam
-        const getOptions = forceNetwork ? { source: 'server' } : {};
         const tablesSnapshot = await db.collection('edupresenca_sync')
             .doc('admin@leandroyata.com.br')
             .collection('tabelas')
-            .get(getOptions);
+            .get();
             
         const downloadedKeys = new Set();
         tablesSnapshot.forEach(doc => {
@@ -262,33 +297,29 @@ export async function syncFromCloud(showErrorToast = false, forceNetwork = false
             downloadedKeys.add(finalKey);
             
             if (data && data.items) {
-                // CORREÇÃO DE SYNC: A nuvem é sempre a autoridade quando o documento existe.
-                // Só preservamos o local se a nuvem nunca teve dados (snapshot vazia para este
-                // dispositivo específico durante o primeiro login). Caso contrário, a nuvem
-                // pode ter dados mais recentes de outro dispositivo e NÃO deve ser ignorada.
-                if (Array.isArray(data.items) && data.items.length === 0) {
-                    const localStr = localStorage.getItem(finalKey);
-                    if (localStr) {
-                        try {
-                            const localItems = JSON.parse(localStr);
-                            if (Array.isArray(localItems) && localItems.length > 0) {
-                                // Nuvem está vazia mas temos dados locais – faz upload para restaurar
-                                console.warn(`[Sync] Nuvem vazia para ${finalKey} mas local tem ${localItems.length} itens. Fazendo upload para restaurar a nuvem.`);
-                                let baseKey = finalKey;
-                                for (const k of Object.values(KEYS)) {
-                                    if (finalKey.startsWith(k)) { baseKey = k; break; }
+                const localStr = localStorage.getItem(finalKey);
+                if (localStr) {
+                    try {
+                        const localItems = JSON.parse(localStr);
+                        if (Array.isArray(localItems) && localItems.length > 0 && Array.isArray(data.items) && data.items.length === 0) {
+                            console.warn(`[Sync] Tabela local ${finalKey} tem ${localItems.length} itens, mas nuvem está vazia. Preservando local.`);
+                            // Trigger upload of local data to restore the cloud
+                            let baseKey = finalKey;
+                            for (const k of Object.values(KEYS)) {
+                                if (finalKey.startsWith(k)) {
+                                    baseKey = k;
+                                    break;
                                 }
-                                triggerCloudSync(baseKey, localItems, false);
-                                return; // Preserva local, não sobrescreve com vazio
                             }
-                        } catch (err) {
-                            console.error(`Erro ao analisar dados locais em ${finalKey}:`, err);
+                            triggerCloudSync(baseKey, localItems, false);
+                            return; // Do not overwrite local storage
                         }
+                    } catch (err) {
+                        console.error(`Erro ao analisar dados locais para segurança de sync em ${finalKey}:`, err);
                     }
                 }
-                // Nuvem tem dados (ou local está vazio): aplica os dados da nuvem
                 localStorage.setItem(finalKey, JSON.stringify(data.items));
-            } else if (data && Object.keys(data).length > 0) {
+            } else if (data) {
                 localStorage.setItem(finalKey, JSON.stringify(data));
             }
         });
@@ -319,54 +350,6 @@ export async function syncFromCloud(showErrorToast = false, forceNetwork = false
                 );
             }
         }
-    }
-}
-
-// Sincronização forçada da rede — ignora completamente o cache local do Firestore
-// Use este método quando é necessário garantir que dados de outros dispositivos sejam baixados
-export async function forceSync() {
-    return syncFromCloud(true, true);
-}
-
-// ── Listener de alterações em tempo real ────────────────────────────────
-// Inicia um listener Firestore (onSnapshot) que detecta quando OUTRO usuário
-// (ex: Administrador) salva dados, e dispara um evento para notificar a UI.
-export function startChangeListener(currentUserEmail) {
-    // Encerra listener anterior se existir
-    if (_changeListenerUnsub) {
-        _changeListenerUnsub();
-        _changeListenerUnsub = null;
-    }
-    if (!isSyncUser()) return;
-    if (typeof firebase === 'undefined' || !firebase.firestore) return;
-
-    try {
-        const db = firebase.firestore();
-        // Usa o timestamp atual como ponto de partida: só notifica mudanças
-        // que ocorrerem APÓS o usuário ter feito login neste dispositivo
-        const startTimestamp = firebase.firestore.Timestamp.now();
-
-        _changeListenerUnsub = db.collection('edupresenca_sync')
-            .doc('admin@leandroyata.com.br')
-            .collection('_notifications')
-            .where('timestamp', '>', startTimestamp)
-            .orderBy('timestamp', 'desc')
-            .onSnapshot(snapshot => {
-                snapshot.docChanges().forEach(change => {
-                    if (change.type !== 'added') return;
-                    const data = change.doc.data();
-                    // Não notifica o próprio usuário que fez a alteração
-                    if (data.changedBy === currentUserEmail) return;
-                    // Dispara evento global que a UI (app.js) irá capturar
-                    window.dispatchEvent(new CustomEvent('edu-remote-change', { detail: data }));
-                });
-            }, err => {
-                console.warn('[ChangeListener] Listener encerrado:', err.message);
-            });
-
-        console.log(`[ChangeListener] Escutando alterações em tempo real como ${currentUserEmail}`);
-    } catch (e) {
-        console.warn('[ChangeListener] Não foi possível iniciar o listener:', e.message);
     }
 }
 
@@ -421,10 +404,6 @@ function createStore(key) {
         create: (data) => {
             const items = load(key);
             const item = { ...data, id: uid(), createdAt: new Date().toISOString() };
-            // Captura o email do usuário afetado para notificações direcionadas
-            if (key === KEYS.usuarios && data.email) {
-                _lastModifiedUserEmail = data.email;
-            }
             items.push(item);
             save(key, items);
             return item;
@@ -433,22 +412,13 @@ function createStore(key) {
             const items = load(key);
             const idx = items.findIndex(i => i.id === id);
             if (idx === -1) return null;
-            // Captura o email do usuário afetado (usa o email do item atualizado ou do existente)
-            if (key === KEYS.usuarios) {
-                _lastModifiedUserEmail = data.email || items[idx]?.email || null;
-            }
             items[idx] = { ...items[idx], ...data, updatedAt: new Date().toISOString() };
             save(key, items);
             return items[idx];
         },
         delete: (id) => {
-            const items = load(key);
-            // Captura o email do usuário que será removido
-            if (key === KEYS.usuarios) {
-                const target = items.find(i => i.id === id);
-                _lastModifiedUserEmail = target?.email || null;
-            }
-            save(key, items.filter(i => i.id !== id));
+            const items = load(key).filter(i => i.id !== id);
+            save(key, items);
         },
         restore: (item) => {
             const items = load(key);
@@ -735,12 +705,6 @@ export const auth = {
         }
         sessionStorage.removeItem(SESSION_KEY);
         sessionStorage.removeItem('edu_trial_start');
-        sessionStorage.removeItem('edu_cloud_warn_shown');
-        // Encerra o listener de alterações em tempo real ao fazer logout
-        if (_changeListenerUnsub) {
-            _changeListenerUnsub();
-            _changeListenerUnsub = null;
-        }
         try {
             document.getElementById('trial-banner')?.remove();
         } catch (e) {}
@@ -870,18 +834,14 @@ export async function seedIfEmpty() {
 
 
 // ── Background Cloud Sync Bootstrap ──────────────────────
-// Sincroniza ao carregar a página se o usuário já tem sessão ativa (ex: após Forçar Atualização)
 try {
     if (isSyncUser() && typeof firebase !== 'undefined' && firebase.auth) {
-        let authListenerFired = false;
+        let firstAuthResolve = true;
         firebase.auth().onAuthStateChanged((user) => {
-            if (user && !authListenerFired) {
-                authListenerFired = true;
+            if (user && firstAuthResolve) {
+                firstAuthResolve = false; // Garante que roda apenas uma vez no carregamento inicial
                 console.log('[Firebase] Usuário autenticado resolvido. Iniciando sincronização em segundo plano...');
-                // Pequeno atraso para garantir que a UI esteja pronta antes de aplicar dados
-                setTimeout(() => {
-                    syncFromCloud(false).catch(err => console.error('Erro na sincronização em segundo plano:', err));
-                }, 500);
+                syncFromCloud().catch(err => console.error('Erro na sincronização em segundo plano:', err));
             }
         });
     }

@@ -706,10 +706,39 @@ export function render(outlet) {
                 .sort((a,b) => a.nome.localeCompare(b.nome));
         }
 
-        // Fetch all teachers
+        // Fetch all teachers, separate specialists from non-specialists based on current discipline
         const listTeachers = usuarios.getAll()
             .filter(u => u.role === 'professor')
             .sort((a,b) => a.nome.localeCompare(b.nome));
+
+        // Helper to build teacher options grouped by specialty
+        function buildTeacherOptions(discId, selectedProfId) {
+            const specialists = listTeachers.filter(p => Array.isArray(p.disciplinas) && p.disciplinas.includes(discId));
+            const others = listTeachers.filter(p => !(Array.isArray(p.disciplinas) && p.disciplinas.includes(discId)));
+
+            let html = `<option value="">Selecione o Professor...</option>`;
+            if (specialists.length > 0) {
+                html += `<optgroup label="✅ Especialistas nesta disciplina">`;
+                specialists.forEach(p => {
+                    html += `<option value="${p.id}" ${selectedProfId === p.id ? 'selected' : ''}>${eh(p.nome)}</option>`;
+                });
+                html += `</optgroup>`;
+            }
+            if (others.length > 0) {
+                html += `<optgroup label="⚠️ Outros professores (não vinculados)">`;
+                others.forEach(p => {
+                    html += `<option value="${p.id}" ${selectedProfId === p.id ? 'selected' : ''}>${eh(p.nome)}</option>`;
+                });
+                html += `</optgroup>`;
+            }
+            return html;
+        }
+
+        const initialDiscId = sched?.disciplinaId || '';
+        const initialProfId = sched?.professorId || '';
+        const initialIsSpecialist = initialDiscId && initialProfId
+            ? listTeachers.find(p => p.id === initialProfId && Array.isArray(p.disciplinas) && p.disciplinas.includes(initialDiscId))
+            : true; // no selection = no warning
 
         const body = `
             <form id="horario-form" novalidate autocomplete="off" style="display:flex; flex-direction:column; gap:16px;">
@@ -730,15 +759,14 @@ export function render(outlet) {
                 <div class="form-group">
                     <label class="form-label" for="h-professor">Professor Docente <span class="required">*</span></label>
                     <select class="form-control" id="h-professor" name="professorId" required style="height:42px;">
-                        <option value="">Selecione o Professor...</option>
-                        ${listTeachers.map(p => {
-                            // Check if this teacher is explicitly assigned to this discipline
-                            const isAssigned = Array.isArray(p.disciplinas) && p.disciplinas.includes(sched?.disciplinaId);
-                            const selected = sched?.professorId === p.id ? 'selected' : '';
-                            return `<option value="${p.id}" ${selected}>${eh(p.nome)}</option>`;
-                        }).join('')}
+                        ${initialDiscId ? buildTeacherOptions(initialDiscId, initialProfId) : `<option value="">Selecione a disciplina primeiro</option>${listTeachers.map(p => `<option value="${p.id}" ${initialProfId === p.id ? 'selected' : ''}>${eh(p.nome)}</option>`).join('')}`}
                     </select>
-                    <span class="form-help" style="font-size:10px;">Caso o professor não apareça, verifique se seu perfil está ativo.</span>
+                    <span class="form-help" style="font-size:10px;">Professores <strong>especialistas</strong> estão vinculados à disciplina no perfil deles.</span>
+                </div>
+
+                <div id="warn-non-specialist" style="display:${initialDiscId && initialProfId && !initialIsSpecialist ? 'flex' : 'none'}; align-items:flex-start; gap:10px; padding:10px 14px; background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.4); border-radius:10px; font-size:12px; color:var(--text-primary);">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    <div><strong>Atenção:</strong> O professor selecionado <strong>não está vinculado</strong> a esta disciplina no seu perfil. Isso pode impedir que ele visualize a disciplina na chamada e no lançamento de notas. Vincule a disciplina ao professor em <em>Professores → Editar Perfil</em>, ou confirme que esta é uma substituição temporária.</div>
                 </div>
 
                 <div class="form-grid" style="grid-template-columns:1fr 1fr; gap:12px;">
@@ -783,25 +811,39 @@ export function render(outlet) {
         const selectDisc = mShadow.getElementById('h-disciplina');
         const selectProf = mShadow.getElementById('h-professor');
         
+        const warnEl = mShadow.getElementById('warn-non-specialist');
+
+        function updateNonSpecialistWarning() {
+            const discId = selectDisc.value;
+            const profId = selectProf.value;
+            if (!discId || !profId) {
+                if (warnEl) warnEl.style.display = 'none';
+                return;
+            }
+            const selectedProf = listTeachers.find(p => p.id === profId);
+            const isSpecialist = selectedProf && Array.isArray(selectedProf.disciplinas) && selectedProf.disciplinas.includes(discId);
+            if (warnEl) warnEl.style.display = isSpecialist ? 'none' : 'flex';
+        }
+
         selectDisc?.addEventListener('change', () => {
             const discId = selectDisc.value;
-            if (!discId) return;
 
-            // Highlight teachers who teach this discipline
-            Array.from(selectProf.options).forEach(opt => {
-                if (!opt.value) return;
-                const p = listTeachers.find(u => u.id === opt.value);
-                if (p) {
-                    const isAssigned = Array.isArray(p.disciplinas) && p.disciplinas.includes(discId);
-                    if (isAssigned) {
-                        opt.textContent = `${p.nome} (Especialista)`;
-                        opt.style.fontWeight = 'bold';
-                    } else {
-                        opt.textContent = p.nome;
-                        opt.style.fontWeight = 'normal';
-                    }
-                }
-            });
+            // Rebuild teacher select with optgroups based on new discipline
+            if (discId) {
+                const currentProf = selectProf.value;
+                selectProf.innerHTML = buildTeacherOptions(discId, currentProf);
+                // Restore previous selection if possible
+                if (currentProf) selectProf.value = currentProf;
+            } else {
+                selectProf.innerHTML = `<option value="">Selecione a disciplina primeiro</option>` +
+                    listTeachers.map(p => `<option value="${p.id}">${eh(p.nome)}</option>`).join('');
+            }
+
+            updateNonSpecialistWarning();
+        });
+
+        selectProf?.addEventListener('change', () => {
+            updateNonSpecialistWarning();
         });
 
         // Cancel hook
@@ -850,10 +892,17 @@ export function render(outlet) {
                 return;
             }
 
-            // Conflict Check 2: Sala availability
+            // Normalize room name for robust comparison (collapse spaces, lowercase, remove accents)
+            function normalizeRoom(s) {
+                return s.trim().toLowerCase()
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                    .replace(/\s+/g, ' ');
+            }
+
+            // Conflict Check 2: Sala availability (same day, same period, different slot)
             const conflictSala = horarios.getAll().find(h =>
                 h.id !== schedId &&
-                h.sala.trim().toLowerCase() === data.sala.trim().toLowerCase() &&
+                normalizeRoom(h.sala || '') === normalizeRoom(data.sala) &&
                 Number(h.diaSemana) === dayVal &&
                 Number(h.periodo) === periodNum
             );
@@ -861,6 +910,34 @@ export function render(outlet) {
                 const otherTurma = turmas.getById(conflictSala.turmaId);
                 window.toast?.error('Conflito de Sala', `A sala "${data.sala}" já está ocupada pela turma "${otherTurma?.nome || 'Outra'}" neste dia e período.`);
                 return;
+            }
+
+            // Conflict Check 3: Same turma, same day, same period already has an entry (different slot)
+            const conflictTurma = horarios.getAll().find(h =>
+                h.id !== schedId &&
+                h.turmaId === selectedTurmaId &&
+                Number(h.diaSemana) === dayVal &&
+                Number(h.periodo) === periodNum
+            );
+            if (conflictTurma) {
+                const conflictDisc = disciplinas.getById(conflictTurma.disciplinaId);
+                window.toast?.error('Conflito de Turma', `Esta turma já possui "${conflictDisc?.nome || 'uma disciplina'}" cadastrada neste mesmo dia e período.`);
+                return;
+            }
+
+            // Specialist Warning: selected teacher is not assigned to this discipline
+            const selectedProfObj = listTeachers.find(p => p.id === data.professorId);
+            const isSpecialist = selectedProfObj && Array.isArray(selectedProfObj.disciplinas) && selectedProfObj.disciplinas.includes(data.disciplinaId);
+            if (!isSpecialist) {
+                const discObj = disciplinas.getById(data.disciplinaId);
+                const confirmed = await showConfirm(modal, {
+                    title: 'Professor Não Vinculado',
+                    message: `O professor <strong>${eh(selectedProfObj?.nome || '—')}</strong> não está vinculado à disciplina <strong>${eh(discObj?.nome || '—')}</strong>.<br/><br/>Isso pode impedir que ele visualize esta disciplina na <strong>chamada</strong> e no <strong>lançamento de notas</strong>.<br/><br/><small style="color:var(--text-secondary)">Deseja prosseguir mesmo assim? (Ex: substituição temporária)</small>`,
+                    confirmText: 'Sim, Prosseguir',
+                    cancelText: 'Cancelar',
+                    type: 'warning'
+                });
+                if (!confirmed) return;
             }
 
             const resolvedEntry = {

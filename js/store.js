@@ -299,12 +299,18 @@ export async function syncFromCloud(showErrorToast = false) {
             const data = doc.data();
             downloadedKeys.add(finalKey);
             
-            if (data && data.items) {
+            const isConfigKey = finalKey === KEYS.config;
+            if (isConfigKey) {
+                if (data) {
+                    localStorage.setItem(finalKey, JSON.stringify(data));
+                }
+            } else {
+                const cloudItems = (data && Array.isArray(data.items)) ? data.items : [];
                 const localStr = localStorage.getItem(finalKey);
                 if (localStr) {
                     try {
                         const localItems = JSON.parse(localStr);
-                        if (Array.isArray(localItems) && localItems.length > 0 && Array.isArray(data.items) && data.items.length === 0) {
+                        if (Array.isArray(localItems) && localItems.length > 0 && cloudItems.length === 0) {
                             console.warn(`[Sync] Tabela local ${finalKey} tem ${localItems.length} itens, mas nuvem está vazia. Preservando local.`);
                             // Trigger upload of local data to restore the cloud
                             let baseKey = finalKey;
@@ -321,9 +327,7 @@ export async function syncFromCloud(showErrorToast = false) {
                         console.error(`Erro ao analisar dados locais para segurança de sync em ${finalKey}:`, err);
                     }
                 }
-                localStorage.setItem(finalKey, JSON.stringify(data.items));
-            } else if (data) {
-                localStorage.setItem(finalKey, JSON.stringify(data));
+                localStorage.setItem(finalKey, JSON.stringify(cloudItems));
             }
         });
 
@@ -378,7 +382,10 @@ export async function pushAllToCloud() {
 
 function load(key) {
     const finalKey = getStoreKey(key);
-    try { return JSON.parse(localStorage.getItem(finalKey)) || []; }
+    try {
+        const val = JSON.parse(localStorage.getItem(finalKey));
+        return Array.isArray(val) ? val : [];
+    }
     catch { return []; }
 }
 

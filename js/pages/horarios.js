@@ -1055,7 +1055,12 @@ export function render(outlet) {
             headerSub = `Curso: ${curso?.nome || 'Geral'}  |  Ano Letivo: ${auth.currentUser() ? auth.currentUser().anoLetivo || new Date().getFullYear() : new Date().getFullYear()}`;
 
             const scheds = horarios.getAll().filter(h => h.turmaId === selectedTurmaId);
-            for (let p = 1; p <= PERIODOS_MAX; p++) {
+            const tShift = turnos.getById(turma?.turnoId);
+            const periodsCount = (tShift?.maxPeriodos && Number(tShift.maxPeriodos) > 0)
+                ? Number(tShift.maxPeriodos)
+                : PERIODOS_MAX;
+
+            for (let p = 1; p <= periodsCount; p++) {
                 const row = { periodo: `${p}º Horário`, days: [] };
                 for (let d = 1; d <= 6; d++) {
                     const h = scheds.find(s => Number(s.diaSemana) === d && Number(s.periodo) === p);
@@ -1075,7 +1080,18 @@ export function render(outlet) {
             headerSub = `E-mail: ${prof?.email || '—'}  |  Ano Letivo: ${new Date().getFullYear()}`;
 
             const scheds = horarios.getAll().filter(h => h.professorId === selectedProfessorId);
-            for (let p = 1; p <= PERIODOS_MAX; p++) {
+            const turmaIds = [...new Set(scheds.map(h => h.turmaId))];
+            let periodsCount = PERIODOS_MAX;
+            if (turmaIds.length > 0) {
+                const counts = turmaIds.map(tid => {
+                    const t = turmas.getById(tid);
+                    const tn = turnos.getById(t?.turnoId);
+                    return (tn?.maxPeriodos && Number(tn.maxPeriodos) > 0) ? Number(tn.maxPeriodos) : PERIODOS_MAX;
+                });
+                periodsCount = Math.max(...counts);
+            }
+
+            for (let p = 1; p <= periodsCount; p++) {
                 const row = { periodo: `${p}º Horário`, days: [] };
                 for (let d = 1; d <= 6; d++) {
                     const h = scheds.find(s => Number(s.diaSemana) === d && Number(s.periodo) === p);

@@ -879,16 +879,32 @@ export function render(outlet) {
                 return;
             }
 
-            // Conflict Check 1: Professor availability
-            const conflictProf = horarios.getAll().find(h => 
+            // Helper: check if two time intervals overlap (strings "HH:MM")
+            function timesOverlap(s1, e1, s2, e2) {
+                // If any time is missing, skip the time overlap check (allow by period only)
+                if (!s1 || !e1 || !s2 || !e2) return false;
+                // Convert "HH:MM" to minutes for easy comparison
+                const toMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+                return toMin(s1) < toMin(e2) && toMin(s2) < toMin(e1);
+            }
+
+            const newStart = data.horarioInicio || '';
+            const newEnd   = data.horarioFim   || '';
+
+            // Conflict Check 1: Professor availability (same period OR overlapping time on same day)
+            const conflictProf = horarios.getAll().find(h =>
                 h.id !== schedId &&
                 h.professorId === data.professorId &&
                 Number(h.diaSemana) === dayVal &&
-                Number(h.periodo) === periodNum
+                (
+                    Number(h.periodo) === periodNum ||
+                    timesOverlap(newStart, newEnd, h.horarioInicio, h.horarioFim)
+                )
             );
             if (conflictProf) {
                 const otherTurma = turmas.getById(conflictProf.turmaId);
-                window.toast?.error('Conflito de Professor', `O professor selecionado já tem aula na turma "${otherTurma?.nome || 'Outra'}" (Sala ${conflictProf.sala}) neste dia e período.`);
+                const timeInfo = conflictProf.horarioInicio ? ` (${conflictProf.horarioInicio}–${conflictProf.horarioFim})` : '';
+                window.toast?.error('Conflito de Professor', `O professor selecionado já tem aula na turma "${otherTurma?.nome || 'Outra'}" — Sala ${conflictProf.sala}${timeInfo} — neste dia. Os horários se sobrepõem.`);
                 return;
             }
 
@@ -899,29 +915,37 @@ export function render(outlet) {
                     .replace(/\s+/g, ' ');
             }
 
-            // Conflict Check 2: Sala availability (same day, same period, different slot)
+            // Conflict Check 2: Sala availability (same period OR overlapping time on same day)
             const conflictSala = horarios.getAll().find(h =>
                 h.id !== schedId &&
                 normalizeRoom(h.sala || '') === normalizeRoom(data.sala) &&
                 Number(h.diaSemana) === dayVal &&
-                Number(h.periodo) === periodNum
+                (
+                    Number(h.periodo) === periodNum ||
+                    timesOverlap(newStart, newEnd, h.horarioInicio, h.horarioFim)
+                )
             );
             if (conflictSala) {
                 const otherTurma = turmas.getById(conflictSala.turmaId);
-                window.toast?.error('Conflito de Sala', `A sala "${data.sala}" já está ocupada pela turma "${otherTurma?.nome || 'Outra'}" neste dia e período.`);
+                const timeInfo = conflictSala.horarioInicio ? ` (${conflictSala.horarioInicio}–${conflictSala.horarioFim})` : '';
+                window.toast?.error('Conflito de Sala', `A sala "${data.sala}" já está ocupada pela turma "${otherTurma?.nome || 'Outra'}"${timeInfo} neste dia. Os horários se sobrepõem.`);
                 return;
             }
 
-            // Conflict Check 3: Same turma, same day, same period already has an entry (different slot)
+            // Conflict Check 3: Same turma, same day, same period OR overlapping time
             const conflictTurma = horarios.getAll().find(h =>
                 h.id !== schedId &&
                 h.turmaId === selectedTurmaId &&
                 Number(h.diaSemana) === dayVal &&
-                Number(h.periodo) === periodNum
+                (
+                    Number(h.periodo) === periodNum ||
+                    timesOverlap(newStart, newEnd, h.horarioInicio, h.horarioFim)
+                )
             );
             if (conflictTurma) {
                 const conflictDisc = disciplinas.getById(conflictTurma.disciplinaId);
-                window.toast?.error('Conflito de Turma', `Esta turma já possui "${conflictDisc?.nome || 'uma disciplina'}" cadastrada neste mesmo dia e período.`);
+                const timeInfo = conflictTurma.horarioInicio ? ` (${conflictTurma.horarioInicio}–${conflictTurma.horarioFim})` : '';
+                window.toast?.error('Conflito de Turma', `Esta turma já possui "${conflictDisc?.nome || 'uma disciplina'}"${timeInfo} cadastrada neste dia com horário sobreposto.`);
                 return;
             }
 

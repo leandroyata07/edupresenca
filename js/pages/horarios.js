@@ -785,6 +785,12 @@ export function render(outlet) {
                         </div>
                     </div>
                 </div>
+
+                <!-- Conflict error banner (shown inside modal to avoid z-index issues) -->
+                <div id="horario-form-error" style="display:none; align-items:flex-start; gap:10px; padding:12px 14px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.35); border-radius:10px; font-size:12.5px; color:#dc2626; animation: shake 0.3s ease;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <div id="horario-form-error-msg"></div>
+                </div>
             </form>
         `;
 
@@ -806,6 +812,30 @@ export function render(outlet) {
         });
 
         const mShadow = modal.shadowRoot;
+
+        // Helper: show error INSIDE the modal form (toast is hidden behind modal overlay)
+        function showFormError(message) {
+            const errBox = mShadow.getElementById('horario-form-error');
+            const errMsg = mShadow.getElementById('horario-form-error-msg');
+            if (errBox && errMsg) {
+                errMsg.innerHTML = message;
+                errBox.style.display = 'flex';
+                errBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                // Also shake the modal for visual feedback
+                const modalEl = mShadow.getElementById('modal');
+                if (modalEl) {
+                    modalEl.classList.remove('shake');
+                    void modalEl.offsetWidth;
+                    modalEl.classList.add('shake');
+                    modalEl.addEventListener('animationend', () => modalEl.classList.remove('shake'), { once: true });
+                }
+                // Auto-hide when user interacts with any field
+                const form = mShadow.getElementById('horario-form');
+                const hideOnChange = () => { errBox.style.display = 'none'; };
+                form?.addEventListener('change', hideOnChange, { once: true });
+                form?.addEventListener('input', hideOnChange, { once: true });
+            }
+        }
 
         // Auto filter teachers based on selected discipline (Enhancement)
         const selectDisc = mShadow.getElementById('h-disciplina');
@@ -904,7 +934,7 @@ export function render(outlet) {
             if (conflictProf) {
                 const otherTurma = turmas.getById(conflictProf.turmaId);
                 const timeInfo = conflictProf.horarioInicio ? ` (${conflictProf.horarioInicio}–${conflictProf.horarioFim})` : '';
-                window.toast?.error('Conflito de Professor', `O professor selecionado já tem aula na turma "${otherTurma?.nome || 'Outra'}" — Sala ${conflictProf.sala}${timeInfo} — neste dia. Os horários se sobrepõem.`);
+                showFormError(`<strong>Conflito de Professor:</strong> Este professor já tem aula na turma <strong>${eh(otherTurma?.nome || 'Outra')}</strong> — Sala ${eh(conflictProf.sala)}${timeInfo} — neste dia. Os horários se sobrepõem.`);
                 return;
             }
 
@@ -928,7 +958,7 @@ export function render(outlet) {
             if (conflictSala) {
                 const otherTurma = turmas.getById(conflictSala.turmaId);
                 const timeInfo = conflictSala.horarioInicio ? ` (${conflictSala.horarioInicio}–${conflictSala.horarioFim})` : '';
-                window.toast?.error('Conflito de Sala', `A sala "${data.sala}" já está ocupada pela turma "${otherTurma?.nome || 'Outra'}"${timeInfo} neste dia. Os horários se sobrepõem.`);
+                showFormError(`<strong>Conflito de Sala:</strong> A sala <strong>${eh(data.sala)}</strong> já está ocupada pela turma <strong>${eh(otherTurma?.nome || 'Outra')}</strong>${timeInfo} neste dia. Os horários se sobrepõem.`);
                 return;
             }
 
@@ -945,7 +975,7 @@ export function render(outlet) {
             if (conflictTurma) {
                 const conflictDisc = disciplinas.getById(conflictTurma.disciplinaId);
                 const timeInfo = conflictTurma.horarioInicio ? ` (${conflictTurma.horarioInicio}–${conflictTurma.horarioFim})` : '';
-                window.toast?.error('Conflito de Turma', `Esta turma já possui "${conflictDisc?.nome || 'uma disciplina'}"${timeInfo} cadastrada neste dia com horário sobreposto.`);
+                showFormError(`<strong>Conflito de Turma:</strong> Esta turma já possui <strong>${eh(conflictDisc?.nome || 'uma disciplina')}</strong>${timeInfo} cadastrada neste dia com horário sobreposto.`);
                 return;
             }
 

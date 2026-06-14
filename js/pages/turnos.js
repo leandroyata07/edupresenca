@@ -144,6 +144,10 @@ export function render(outlet) {
       }
     },
     {
+      label: 'Períodos/Dia', key: 'maxPeriodos', sortable: false,
+      render: (v) => v ? `<span class="badge badge-neutral">${v} aulas</span>` : `<span class="badge badge-neutral">6 aulas</span>`
+    },
+    {
       label: 'Ações', key: 'id', sortable: false,
       render: (id) => {
         const isAdmin = auth.isAdmin();
@@ -398,6 +402,13 @@ export function render(outlet) {
             <input class="form-control" id="t-fim" name="fim" type="time"
               value="${turno?.fim || ''}" required />
           </div>
+          <div class="form-group full-width">
+            <label class="form-label" for="t-maxperiodos">Nº de Períodos/Aulas por Dia <span class="required">*</span></label>
+            <input class="form-control" id="t-maxperiodos" name="maxPeriodos" type="number"
+              min="1" max="12" placeholder="Ex: 4"
+              value="${turno?.maxPeriodos || 6}" required style="max-width:120px;" />
+            <span style="font-size:11px;color:var(--text-tertiary);margin-top:4px;display:block;">Quantas aulas por dia este turno comporta. O quadro de horários exibirá somente esse número de linhas para as turmas vinculadas a este turno.</span>
+          </div>
         </div>
       </form>
     `;
@@ -438,6 +449,14 @@ export function render(outlet) {
         return;
       }
 
+      const maxPeriodos = parseInt(data.maxPeriodos, 10);
+      if (isNaN(maxPeriodos) || maxPeriodos < 1 || maxPeriodos > 12) {
+        window.toast?.error('Valor inválido', 'O número de períodos deve ser entre 1 e 12.');
+        return;
+      }
+
+      const resolvedData = { ...data, maxPeriodos };
+
       if (isEdit) {
         const confirmed = await showConfirm(modal, {
           title: 'Confirmar Edição',
@@ -446,11 +465,11 @@ export function render(outlet) {
         });
         if (!confirmed) return;
 
-        turnos.update(turno.id, data);
+        turnos.update(turno.id, resolvedData);
         addLog('UPDATE', 'Turno', { id: turno.id, nome: data.nome });
         window.toast?.success('Turno atualizado!', '');
       } else {
-        turnos.create(data);
+        turnos.create(resolvedData);
         addLog('CREATE', 'Turno', { nome: data.nome });
         window.toast?.success('Turno cadastrado!', '');
       }

@@ -1,7 +1,7 @@
 // =========================================================
 // EduPresença — Quadro de Horários
 // =========================================================
-import { horarios, turmas, cursos, disciplinas, usuarios, auth, addLog, KEYS, triggerCloudSync, isSyncUser } from '../store.js';
+import { horarios, turmas, cursos, disciplinas, usuarios, turnos, auth, addLog, KEYS, triggerCloudSync, isSyncUser } from '../store.js';
 import { escapeHtml as eh, getInitials, stringToHue, showConfirm, initRipple } from '../utils.js';
 
 const DIAS_SEMANA = [
@@ -524,8 +524,14 @@ export function render(outlet) {
         const turma = turmas.getById(selectedTurmaId);
         const scheds = horarios.getAll().filter(h => h.turmaId === selectedTurmaId);
 
+        // Determine number of periods from the linked turno (fallback to PERIODOS_MAX)
+        const turno = turnos.getById(turma?.turnoId);
+        const periodsCount = (turno?.maxPeriodos && Number(turno.maxPeriodos) > 0)
+            ? Number(turno.maxPeriodos)
+            : PERIODOS_MAX;
+
         let rowsHtml = '';
-        for (let p = 1; p <= PERIODOS_MAX; p++) {
+        for (let p = 1; p <= periodsCount; p++) {
             let cellsHtml = `
                 <td class="hor-grid-td">
                     <div class="hor-period-cell">
@@ -623,8 +629,20 @@ export function render(outlet) {
         const prof = usuarios.getById(selectedProfessorId);
         const scheds = horarios.getAll().filter(h => h.professorId === selectedProfessorId);
 
+        // Determine period count: use the max maxPeriodos across all turmas this professor has schedules in
+        const turmaIds = [...new Set(scheds.map(h => h.turmaId))];
+        let periodsCount = PERIODOS_MAX;
+        if (turmaIds.length > 0) {
+            const counts = turmaIds.map(tid => {
+                const t = turmas.getById(tid);
+                const tn = turnos.getById(t?.turnoId);
+                return (tn?.maxPeriodos && Number(tn.maxPeriodos) > 0) ? Number(tn.maxPeriodos) : PERIODOS_MAX;
+            });
+            periodsCount = Math.max(...counts);
+        }
+
         let rowsHtml = '';
-        for (let p = 1; p <= PERIODOS_MAX; p++) {
+        for (let p = 1; p <= periodsCount; p++) {
             let cellsHtml = `
                 <td class="hor-grid-td">
                     <div class="hor-period-cell">

@@ -384,37 +384,52 @@ export function render(outlet) {
             <p style="font-size:11px;color:var(--text-tertiary);margin:0 0 10px 0;">Marque as disciplinas de responsabilidade deste professor. Elas estão agrupadas por curso.</p>
             
             <div id="disciplinas-grouped-container" style="display:flex;flex-direction:column;gap:14px;padding-right:4px;">
-              ${allStoreCursos.map(c => {
-                const courseDiscs = allStoreDiscs.filter(d => d.cursoId === c.id);
-                if (courseDiscs.length === 0) return '';
-                
-                const isCourseSelected = selectedCursos.includes(c.id);
+              ${(() => {
+                // Build ownership map: discId -> owner name (excluding current teacher being edited)
+                const ownershipMap = {};
+                usuarios.getAll()
+                  .filter(u => u.role === 'professor' && u.id !== teacher?.id)
+                  .forEach(p => {
+                    (p.disciplinas || []).forEach(did => {
+                      ownershipMap[did] = p.nome;
+                    });
+                  });
 
-                return `
-                  <div class="disc-group-card" data-curso-id="${c.id}" style="border:1px solid var(--border-color);border-radius:10px;background:var(--surface-1);overflow:hidden;display:${isCourseSelected ? 'block' : 'none'};">
-                    <!-- Course Header -->
-                    <div style="background:var(--surface-3);padding:8px 12px;font-size:11.5px;font-weight:700;color:var(--text-primary);border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
-                      <span>Curso: ${eh(c.nome)}</span>
-                      <span class="badge-status" style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:#059669;color:#fff;">
-                        Ativo
-                      </span>
+                return allStoreCursos.map(c => {
+                  const courseDiscs = allStoreDiscs.filter(d => d.cursoId === c.id);
+                  if (courseDiscs.length === 0) return '';
+                  const isCourseSelected = selectedCursos.includes(c.id);
+
+                  return `
+                    <div class="disc-group-card" data-curso-id="${c.id}" style="border:1px solid var(--border-color);border-radius:10px;background:var(--surface-1);overflow:hidden;display:${isCourseSelected ? 'block' : 'none'};">
+                      <div style="background:var(--surface-3);padding:8px 12px;font-size:11.5px;font-weight:700;color:var(--text-primary);border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+                        <span>Curso: ${eh(c.nome)}</span>
+                        <span class="badge-status" style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:#059669;color:#fff;">Ativo</span>
+                      </div>
+                      <div style="padding:10px 10px 10px 12px;display:flex;flex-direction:column;gap:8px;max-height:115px;overflow-y:auto;overscroll-behavior:contain;padding-right:4px;">
+                        ${courseDiscs.map(d => {
+                          const checked = selectedDiscs.includes(d.id) ? 'checked' : '';
+                          const disabled = isCourseSelected ? '' : 'disabled';
+                          const currentOwner = ownershipMap[d.id];
+                          const ownerTag = currentOwner
+                            ? `<span title="Já atribuída a ${eh(currentOwner)}" style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:rgba(251,191,36,0.15);color:#d97706;border:1px solid rgba(251,191,36,0.4);white-space:nowrap;">⚠️ ${eh(currentOwner)}</span>`
+                            : '';
+                          return `
+                            <label style="display:inline-flex;align-items:center;gap:8px;font-size:11.5px;cursor:${isCourseSelected ? 'pointer' : 'default'};user-select:none;color:${isCourseSelected ? 'var(--text-secondary)' : 'var(--text-tertiary)'};">
+                              <input type="checkbox" class="chk-disciplina" data-id="${d.id}" data-curso-id="${c.id}" ${checked} ${disabled} style="cursor:${isCourseSelected ? 'pointer' : 'default'};" />
+                              <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                ${eh(d.nome)} <small style="color:var(--text-tertiary);font-size:9.5px;">(${d.cargaHoraria}h)</small>
+                                ${ownerTag}
+                              </span>
+                            </label>
+                          `;
+                        }).join('')}
+                      </div>
                     </div>
-                    <!-- Disciplines list -->
-                    <div style="padding:10px 10px 10px 12px;display:flex;flex-direction:column;gap:8px;max-height:115px;overflow-y:auto;overscroll-behavior:contain;padding-right:4px;">
-                      ${courseDiscs.map(d => {
-                        const checked = selectedDiscs.includes(d.id) ? 'checked' : '';
-                        const disabled = isCourseSelected ? '' : 'disabled';
-                        return `
-                          <label style="display:inline-flex;align-items:center;gap:8px;font-size:11.5px;cursor:${isCourseSelected ? 'pointer' : 'default'};user-select:none;color:${isCourseSelected ? 'var(--text-secondary)' : 'var(--text-tertiary)'};">
-                            <input type="checkbox" class="chk-disciplina" data-id="${d.id}" data-curso-id="${c.id}" ${checked} ${disabled} style="cursor:${isCourseSelected ? 'pointer' : 'default'};" />
-                            <span>${eh(d.nome)} <small style="color:var(--text-tertiary);font-size:9.5px;margin-left:4px;">(${d.cargaHoraria}h)</small></span>
-                          </label>
-                        `;
-                      }).join('')}
-                    </div>
-                  </div>
-                `;
-              }).join('')}
+                  `;
+                }).join('');
+              })()}
+              
               
               ${allStoreCursos.length === 0 || allStoreDiscs.length === 0 ? `<div style="font-size:12px;color:var(--text-tertiary);padding:16px;background:var(--surface-1);border:1px solid var(--border-color);border-radius:10px;text-align:center;font-style:italic;">Cadastre cursos e disciplinas para realizar atribuições acadêmicas.</div>` : ''}
             </div>
@@ -559,6 +574,63 @@ export function render(outlet) {
 
       const selectedDiscIds = [];
       bodyEl.querySelectorAll('.chk-disciplina:checked').forEach(d => selectedDiscIds.push(d.dataset.id));
+
+      // ── Exclusivity Check ────────────────────────────────────────────────────
+      // For each selected discipline, verify if it is already owned by another professor.
+      // If so, collect the conflicts and ask the admin if they want to transfer them.
+      const allProfessores = usuarios.getAll().filter(u => u.role === 'professor' && u.id !== teacher?.id);
+      const conflictsFound = []; // { discId, discNome, ownerNome, ownerId }
+
+      selectedDiscIds.forEach(discId => {
+        const currentOwner = allProfessores.find(p => Array.isArray(p.disciplinas) && p.disciplinas.includes(discId));
+        if (currentOwner) {
+          const discObj = disciplinas.getById(discId);
+          conflictsFound.push({
+            discId,
+            discNome: discObj?.nome || discId,
+            ownerNome: currentOwner.nome,
+            ownerId: currentOwner.id
+          });
+        }
+      });
+
+      if (conflictsFound.length > 0) {
+        const conflictList = conflictsFound
+          .map(c => `<li style="padding:4px 0; font-size:12.5px;"><strong>${eh(c.discNome)}</strong> → atualmente com <span style="color:var(--primary-400)">${eh(c.ownerNome)}</span></li>`)
+          .join('');
+
+        const transferConfirmed = await showConfirm(modal, {
+          title: 'Conflito de Atribuição de Disciplinas',
+          message: `As seguintes disciplinas já estão atribuídas a outro(s) professor(es):<br/><br/>
+            <ul style="list-style:none;padding:0;margin:0;background:var(--surface-3);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;">
+              ${conflictList}
+            </ul><br/>
+            Deseja <strong>transferir</strong> essas disciplinas para <strong>${eh(data.nome)}</strong>?<br/>
+            <small style="color:var(--text-secondary)">Elas serão removidas do professor atual e atribuídas a este.</small>`,
+          confirmText: 'Sim, Transferir',
+          cancelText: 'Cancelar',
+          type: 'warning'
+        });
+
+        if (!transferConfirmed) {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = originalText;
+          return;
+        }
+
+        // Remove the conflicting disciplines from their current owners
+        conflictsFound.forEach(c => {
+          const owner = usuarios.getById(c.ownerId);
+          if (owner) {
+            const updatedDiscs = (owner.disciplinas || []).filter(id => id !== c.discId);
+            usuarios.update(c.ownerId, { ...owner, disciplinas: updatedDiscs });
+          }
+        });
+        if (isSyncUser() && typeof firebase !== 'undefined' && firebase.firestore) {
+          triggerCloudSync(KEYS.usuarios, usuarios.getAll());
+        }
+      }
+      // ────────────────────────────────────────────────────────────────────────
 
       const resolvedData = {
         nome: data.nome,

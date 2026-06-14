@@ -278,6 +278,9 @@ function updateLocalFotoUrl(key, id, remoteUrl) {
     }
 }
 
+// Alias exported for backward compatibility with sidebar.js
+export async function forceSync() { return syncFromCloud(true); }
+
 export async function syncFromCloud(showErrorToast = false) {
     if (!isSyncUser()) return;
     if (typeof firebase === 'undefined' || !firebase.firestore) return;

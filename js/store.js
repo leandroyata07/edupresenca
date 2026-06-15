@@ -305,28 +305,11 @@ export async function syncFromCloud(showErrorToast = false) {
                     localStorage.setItem(finalKey, JSON.stringify(data));
                 }
             } else {
+                // A nuvem é sempre a fonte da verdade no syncFromCloud.
+                // A lógica de "proteção" foi removida pois causava um bug crítico:
+                // exclusões intencionais eram revertidas ao re-enviar os dados locais
+                // de volta ao Firebase sempre que a coleção na nuvem estava vazia.
                 const cloudItems = (data && Array.isArray(data.items)) ? data.items : [];
-                const localStr = localStorage.getItem(finalKey);
-                if (localStr) {
-                    try {
-                        const localItems = JSON.parse(localStr);
-                        if (Array.isArray(localItems) && localItems.length > 0 && cloudItems.length === 0) {
-                            console.warn(`[Sync] Tabela local ${finalKey} tem ${localItems.length} itens, mas nuvem está vazia. Preservando local.`);
-                            // Trigger upload of local data to restore the cloud
-                            let baseKey = finalKey;
-                            for (const k of Object.values(KEYS)) {
-                                if (finalKey.startsWith(k)) {
-                                    baseKey = k;
-                                    break;
-                                }
-                            }
-                            triggerCloudSync(baseKey, localItems, false);
-                            return; // Do not overwrite local storage
-                        }
-                    } catch (err) {
-                        console.error(`Erro ao analisar dados locais para segurança de sync em ${finalKey}:`, err);
-                    }
-                }
                 localStorage.setItem(finalKey, JSON.stringify(cloudItems));
             }
         });
@@ -553,7 +536,20 @@ export const config = {
 };
 
 // ── Usuários ────────────────────────────────────────────
-export const usuarios = createStore(KEYS.usuarios);
+// Os dois perfis base do sistema nunca podem ser excluídos por nenhum caminho de código.
+const PROTECTED_EMAILS = ['admin@leandroyata.com.br', 'teste@edupresenca.com'];
+const _usuariosBase = createStore(KEYS.usuarios);
+export const usuarios = {
+    ..._usuariosBase,
+    delete: (id) => {
+        const user = _usuariosBase.getById(id);
+        if (user && PROTECTED_EMAILS.includes(user.email)) {
+            console.warn(`[Store] Exclusão do perfil base "${user.email}" bloqueada pelo sistema.`);
+            return; // Proteção inviolável — não exclui, não sincroniza
+        }
+        _usuariosBase.delete(id);
+    },
+};
 
 // ── Logs ───────────────────────────────────────────────
 export const logs = createStore(KEYS.logs);

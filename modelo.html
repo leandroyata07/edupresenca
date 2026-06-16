@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>EduPresença | Gestão Escolar Inteligente</title>
+    <!-- Font Awesome 6 (ícones) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Google Fonts: Poppins + Inter para equilíbrio moderno -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #eef2f5;
+            height: 100vh;
+            width: 100%;
+            overflow-x: hidden;
+        }
+
+        /* Layout principal com grid 50/50 vertical */
+        .split-screen {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            min-height: 100vh;
+            width: 100%;
+        }
+
+        /* ========= LADO ESQUERDO - INFORMAÇÕES ATRATIVAS ========= */
+        .info-side {
+            background: linear-gradient(135deg, #0B2B40 0%, #134B5F 100%);
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 3rem 2.5rem;
+            position: relative;
+            overflow-y: auto;
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.02);
+        }
+
+        /* efeito de ondas/bolhas decorativas */
+        .info-side::before {
+            content: "";
+            position: absolute;
+            top: 20%;
+            left: -10%;
+            width: 280px;
+            height: 280px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .info-side::after {
+            content: "";
+            position: absolute;
+            bottom: 10%;
+            right: -5%;
+            width: 340px;
+            height: 340px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .info-container {
+            max-width: 500px;
+            width: 100%;
+            z-index: 2;
+            animation: fadeSlideUp 0.7s ease-out;
+        }
+
+        .logo-area {
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .logo-area i {
+            font-size: 3rem;
+            color: #FFD966;
+            filter: drop-shadow(0 2px 8px rgba(0,0,0,0.2));
+        }
+        .logo-area h1 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 2.4rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(120deg, #FFFFFF, #FFE6B0);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        .tagline {
+            font-size: 1.2rem;
+            font-weight: 500;
+            margin-bottom: 2rem;
+            border-left: 4px solid #FFD966;
+            padding-left: 1rem;
+            opacity: 0.9;
+        }
+
+        .features-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            margin: 2rem 0 2rem;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(2px);
+            padding: 0.9rem 1.2rem;
+            border-radius: 24px;
+            transition: all 0.25s ease;
+            border: 1px solid rgba(255,255,240,0.15);
+        }
+        .feature-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(6px);
+        }
+        .feature-item i {
+            font-size: 1.8rem;
+            color: #FFD966;
+            width: 36px;
+            text-align: center;
+        }
+        .feature-text h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .feature-text p {
+            font-size: 0.85rem;
+            opacity: 0.85;
+            line-height: 1.3;
+        }
+
+        .depoimento {
+            background: rgba(0, 0, 0, 0.25);
+            padding: 1.2rem 1.5rem;
+            border-radius: 28px;
+            margin-top: 1rem;
+            border-left: 3px solid #FFD966;
+        }
+        .depoimento i {
+            color: #FFD966;
+            font-size: 1.2rem;
+            margin-right: 6px;
+        }
+        .depoimento p {
+            font-style: italic;
+            font-weight: 500;
+            margin-bottom: 6px;
+        }
+        .depoimento span {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            display: block;
+        }
+
+        /* ========= LADO DIREITO - LOGIN ========= */
+        .login-side {
+            background: #F8FAFE;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            position: relative;
+        }
+
+        .login-card {
+            background: white;
+            border-radius: 2rem;
+            box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.05);
+            padding: 2.5rem 2rem;
+            width: 100%;
+            max-width: 440px;
+            transition: transform 0.2s;
+            animation: fadeSlideUp 0.6s ease-out;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .login-header h2 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: #1F3E48;
+            margin-bottom: 8px;
+        }
+        .login-header p {
+            color: #5b6f7c;
+            font-size: 0.9rem;
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .input-group label {
+            font-weight: 500;
+            font-size: 0.85rem;
+            color: #2c4b5c;
+            letter-spacing: -0.2px;
+        }
+        .input-group input {
+            padding: 0.9rem 1rem;
+            border: 1.5px solid #E2E8F0;
+            border-radius: 18px;
+            font-size: 0.95rem;
+            font-family: 'Inter', monospace;
+            transition: all 0.2s;
+            background-color: #fff;
+            outline: none;
+        }
+        .input-group input:focus {
+            border-color: #FFB347;
+            box-shadow: 0 0 0 3px rgba(255, 180, 71, 0.2);
+        }
+
+        .options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 0.5rem 0 1.8rem;
+            font-size: 0.85rem;
+        }
+        .options label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #3a5c6b;
+            cursor: pointer;
+        }
+        .options a {
+            color: #FF8C42;
+            text-decoration: none;
+            font-weight: 500;
+            transition: 0.2s;
+        }
+        .options a:hover {
+            color: #E57C2C;
+            text-decoration: underline;
+        }
+
+        button[type="submit"] {
+            width: 100%;
+            background: linear-gradient(95deg, #1F6E8C, #0E4F64);
+            border: none;
+            padding: 0.9rem;
+            border-radius: 40px;
+            font-weight: 700;
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 6px 14px rgba(15, 70, 90, 0.2);
+            margin-bottom: 1.5rem;
+        }
+        button[type="submit"]:hover {
+            background: linear-gradient(95deg, #135f79, #0a4153);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 20px -8px rgba(15, 70, 90, 0.4);
+        }
+        button[type="submit"]:active {
+            transform: translateY(1px);
+        }
+
+        .signup-link {
+            text-align: center;
+            font-size: 0.85rem;
+            color: #5f7e8c;
+        }
+        .signup-link a {
+            color: #FF8C42;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .signup-link a:hover {
+            text-decoration: underline;
+        }
+
+        .message {
+            margin-top: 1.2rem;
+            padding: 0.8rem;
+            border-radius: 34px;
+            text-align: center;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .message.success {
+            background: #E1F7E9;
+            color: #166534;
+            border-left: 4px solid #2E7D32;
+        }
+        .message.error {
+            background: #FFE9E9;
+            color: #B91C1C;
+            border-left: 4px solid #D32F2F;
+        }
+        .message.info {
+            background: #EFF6FF;
+            color: #1E3A8A;
+            border-left: 4px solid #3B82F6;
+        }
+
+        /* animações */
+        @keyframes fadeSlideUp {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* RESPONSIVIDADE: empilhar colunas verticalmente em telas menores */
+        @media (max-width: 880px) {
+            .split-screen {
+                grid-template-columns: 1fr;
+                grid-auto-rows: auto;
+            }
+            .info-side {
+                padding: 2.5rem 1.8rem;
+                text-align: center;
+            }
+            .info-container {
+                max-width: 100%;
+            }
+            .logo-area {
+                justify-content: center;
+            }
+            .tagline {
+                text-align: left;
+            }
+            .feature-item {
+                justify-content: flex-start;
+            }
+            .login-card {
+                margin: 1rem;
+                padding: 2rem 1.5rem;
+            }
+        }
+
+        /* scroll suave */
+        .info-side::-webkit-scrollbar {
+            width: 5px;
+        }
+        .info-side::-webkit-scrollbar-track {
+            background: #1f4d61;
+            border-radius: 10px;
+        }
+        .info-side::-webkit-scrollbar-thumb {
+            background: #FFD966;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="split-screen">
+    <!-- LADO ESQUERDO: informações institucionais atrativas -->
+    <div class="info-side">
+        <div class="info-container">
+            <div class="logo-area">
+                <i class="fas fa-chalkboard-user"></i>
+                <h1>EduPresença</h1>
+            </div>
+            <div class="tagline">
+                <i class="fas fa-graduation-cap" style="margin-right: 8px;"></i> 
+                Sistema completo para gestão de notas, boletim e frequência escolar
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-item">
+                    <i class="fas fa-chart-line"></i>
+                    <div class="feature-text">
+                        <h3>Notas e Desempenho</h3>
+                        <p>Lançamento rápido, médias automáticas e análise de evolução acadêmica.</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <i class="fas fa-book-open"></i>
+                    <div class="feature-text">
+                        <h3>Boletim Digital</h3>
+                        <p>Acesso instantâneo para alunos, pais e responsáveis, com gráficos interativos.</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <i class="fas fa-calendar-check"></i>
+                    <div class="feature-text">
+                        <h3>Controle de Presença</h3>
+                        <p>Marque faltas, visualize percentuais e gere relatórios por turma.</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <i class="fas fa-users"></i>
+                    <div class="feature-text">
+                        <h3>Comunicação Eficiente</h3>
+                        <p>Mural de avisos, recados automáticos e integração com app dos pais.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="depoimento">
+                <i class="fas fa-quote-left"></i>
+                <p>"Reduziu 70% do tempo gasto com boletins manuais. Pais amam a transparência!"</p>
+                <span>— Ana Martins, Diretora Pedagógica</span>
+            </div>
+
+            <div style="margin-top: 1.2rem; font-size: 0.75rem; display: flex; gap: 1rem; justify-content: flex-start; flex-wrap: wrap; opacity: 0.7;">
+                <span><i class="fas fa-shield-alt"></i> Dados seguros</span>
+                <span><i class="fas fa-sync-alt"></i> Sincronização em nuvem</span>
+                <span><i class="fas fa-chart-simple"></i> +450 escolas integradas</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- LADO DIREITO: FORMULÁRIO DE LOGIN -->
+    <div class="login-side">
+        <div class="login-card">
+            <div class="login-header">
+                <h2>Acessar plataforma</h2>
+                <p>Entre com suas credenciais para continuar</p>
+            </div>
+
+            <form id="loginForm" action="#" method="post">
+                <div class="input-group">
+                    <label><i class="far fa-envelope"></i> E-mail ou usuário</label>
+                    <input type="email" id="email" placeholder="professor@escola.com" autocomplete="email">
+                </div>
+                <div class="input-group">
+                    <label><i class="fas fa-lock"></i> Senha</label>
+                    <input type="password" id="password" placeholder="********" autocomplete="current-password">
+                </div>
+                <div class="options">
+                    <label>
+                        <input type="checkbox" id="rememberCheck"> Lembrar-me
+                    </label>
+                    <a href="#" id="forgotPasswordLink">Esqueceu a senha?</a>
+                </div>
+                <button type="submit" id="loginBtn"><i class="fas fa-arrow-right-to-bracket"></i> Entrar</button>
+                <div class="signup-link">
+                    Não tem uma conta? <a href="#" id="signupLink">Solicitar acesso</a>
+                </div>
+                <div id="formMessage" class="message"></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // Obtendo elementos do DOM
+        const loginForm = document.getElementById('loginForm');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const messageDiv = document.getElementById('formMessage');
+        const forgotLink = document.getElementById('forgotPasswordLink');
+        const signupLink = document.getElementById('signupLink');
+
+        // Função para exibir mensagens estilizadas
+        function showMessage(msg, type) {
+            messageDiv.innerHTML = msg;
+            messageDiv.classList.remove('success', 'error', 'info');
+            if (type === 'success') messageDiv.classList.add('success');
+            else if (type === 'error') messageDiv.classList.add('error');
+            else if (type === 'info') messageDiv.classList.add('info');
+            // Sumir automaticamente após 4 segundos (apenas para sucesso/info? Melhor manter erro até nova tentativa, mas é opcional)
+            if (type !== 'error') {
+                setTimeout(() => {
+                    if (messageDiv.innerHTML === msg) {
+                        messageDiv.style.opacity = '0';
+                        setTimeout(() => {
+                            if(messageDiv.innerHTML === msg) {
+                                messageDiv.innerHTML = '';
+                                messageDiv.classList.remove('success', 'error', 'info');
+                                messageDiv.style.opacity = '';
+                            }
+                        }, 200);
+                    } else {
+                        messageDiv.style.opacity = '';
+                    }
+                }, 4000);
+            }
+        }
+
+        // Validação de e-mail (simples, mas educativa)
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@([^\s@]+\.)+[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        // Limpar mensagem anterior ao interagir novamente
+        function clearMessageOnInput() {
+            emailInput.addEventListener('input', () => {
+                if (messageDiv.innerHTML) {
+                    messageDiv.innerHTML = '';
+                    messageDiv.classList.remove('success', 'error', 'info');
+                }
+            });
+            passwordInput.addEventListener('input', () => {
+                if (messageDiv.innerHTML) {
+                    messageDiv.innerHTML = '';
+                    messageDiv.classList.remove('success', 'error', 'info');
+                }
+            });
+        }
+        clearMessageOnInput();
+
+        // SUBMIT DO LOGIN (validação e simulação)
+        loginForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const email = emailInput.value.trim();
+            const password = passwordInput.value.trim();
+            const rememberMe = document.getElementById('rememberCheck').checked;
+
+            // Validação de campos vazios
+            if (!email || !password) {
+                showMessage('❌ Por favor, preencha e-mail e senha.', 'error');
+                return;
+            }
+
+            // Validação de formato de e-mail (mais adequado para sistema escolar)
+            if (!isValidEmail(email)) {
+                showMessage('📧 E-mail inválido. Use um formato como nome@escola.com', 'error');
+                return;
+            }
+
+            // Senha com pelo menos 4 caracteres (boa prática)
+            if (password.length < 4) {
+                showMessage('🔒 A senha deve ter pelo menos 4 caracteres.', 'error');
+                return;
+            }
+
+            // Simulação de login bem-sucedido (qualquer credencial válida)
+            // Se chegou aqui, credenciais aceitas (demo)
+            let mensagemBoasVindas = '';
+            if (rememberMe) {
+                mensagemBoasVindas = ' ✅ Lembrado nas próximas sessões. ';
+            } else {
+                mensagemBoasVindas = '';
+            }
+
+            showMessage(`🎉 Login bem-sucedido! Bem-vindo(a) ao EduPresença. ${mensagemBoasVindas} Redirecionando para o painel...`, 'success');
+
+            // Simula um pequeno efeito de loading e "redirecionamento" fictício.
+            // Limpa os campos por cortesia? não, apenas mostra boas-vindas.
+            // Podemos também desabilitar brevemente o botão para evitar spam
+            const btn = loginForm.querySelector('button[type="submit"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Entrando...';
+            btn.disabled = true;
+
+            setTimeout(() => {
+                // Simula navegação para dashboard, mas como é apenas exemplo, exibe alerta adicional e reabilitar.
+                // Mostrar um alerta adicional demonstrativo de que a experiência continua.
+                // Ao invés de redirecionar, apenas mostra um aviso extra com fade.
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                // Notificação extra informativa (sem perder a mensagem principal)
+                const infoMsg = document.createElement('div');
+                // Não interfere no fluxo real, apenas interatividade de demonstração.
+                // Não queremos sobrecarregar o usuário, mas manter a sensação de login feito.
+                if (!document.querySelector('.fake-redirect-demo')) {
+                    const smallHint = document.createElement('div');
+                    smallHint.className = 'fake-redirect-demo';
+                    smallHint.style.marginTop = '8px';
+                    smallHint.style.fontSize = '0.7rem';
+                    smallHint.style.textAlign = 'center';
+                    smallHint.style.color = '#2b6a3b';
+                    smallHint.innerHTML = '🔐 Demo: redirecionamento para Dashboard (simulação)';
+                    messageDiv.insertAdjacentElement('afterend', smallHint);
+                    setTimeout(() => {
+                        if(smallHint) smallHint.style.opacity = '0';
+                        setTimeout(() => smallHint.remove(), 500);
+                    }, 3000);
+                }
+                // Também limpar formulário? normalmente não se limpa login, mas opcional. Não alteramos.
+                // Resetar se desejar? não, pois o demo não deve apagar.
+            }, 1800);
+        });
+
+        // Tratamento do link "Esqueceu a senha?" - interativo simulando recuperação
+        forgotLink.addEventListener('click', function(event) {
+            event.preventDefault();
+            showMessage('🔐 Enviaremos instruções de recuperação de senha para o e-mail cadastrado. (Demonstração)', 'info');
+            // Simular um mini form (apenas feedback)
+            setTimeout(() => {
+                const extra = document.createElement('div');
+                // opcional: fundir com a mensagem, mas sem poluir
+                if(!document.getElementById('demo-recovery')) {
+                    const recoveryDiv = document.createElement('div');
+                    recoveryDiv.id = 'demo-recovery';
+                    recoveryDiv.style.marginTop = '0.5rem';
+                    recoveryDiv.style.fontSize = '0.7rem';
+                    recoveryDiv.style.backgroundColor = '#f0f5fa';
+                    recoveryDiv.style.padding = '8px';
+                    recoveryDiv.style.borderRadius = '24px';
+                    recoveryDiv.style.textAlign = 'center';
+                    recoveryDiv.innerHTML = '📬 Ambiente de demonstração: envio simulado para admin@edupresenca.com';
+                    messageDiv.insertAdjacentElement('afterend', recoveryDiv);
+                    setTimeout(() => { recoveryDiv.style.opacity = '0'; setTimeout(() => recoveryDiv.remove(), 400); }, 3000);
+                }
+            }, 300);
+        });
+
+        // Link de cadastro (solicitar acesso)
+        signupLink.addEventListener('click', function(event) {
+            event.preventDefault();
+            showMessage('📝 Cadastro de novas contas: entre em contato com a secretaria escolar ou administrador do sistema. (Simulação)', 'info');
+            // Efeito adicional demonstrativo
+            const signupDemo = document.createElement('div');
+            signupDemo.style.marginTop = '8px';
+            signupDemo.style.fontSize = '0.7rem';
+            signupDemo.style.backgroundColor = '#EFF6FF';
+            signupDemo.style.padding = '6px 10px';
+            signupDemo.style.borderRadius = '30px';
+            signupDemo.style.textAlign = 'center';
+            signupDemo.innerText = '🏫 EduPresença — Solicitação via e-mail: suporte@edupresenca.com.br';
+            messageDiv.insertAdjacentElement('afterend', signupDemo);
+            setTimeout(() => {
+                signupDemo.style.opacity = '0';
+                setTimeout(() => signupDemo.remove(), 400);
+            }, 3500);
+        });
+
+        // Pequeno ajuste para foco e interações
+        // Prevenir que o enter dentro dos inputs cause recarregamento indevido (já prevenido com preventDefault)
+        // Adicionar um efeito visual de focus global nos inputs para melhor acessibilidade
+        const inputs = document.querySelectorAll('.input-group input');
+        inputs.forEach(input => {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    loginForm.dispatchEvent(new Event('submit'));
+                }
+            });
+        });
+    })();
+</script>
+</body>
+</html>

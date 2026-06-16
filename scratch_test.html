@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>EduPresença - Diagnóstico de Conexão Firebase</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 30px;
+      background: #0f172a;
+      color: #e2e8f0;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 { color: #f8fafc; font-size: 24px; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+    .status-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 12px;
+      margin-left: 10px;
+    }
+    .badge-success { background: #059669; color: #fff; }
+    .badge-error { background: #dc2626; color: #fff; }
+    .badge-warning { background: #d97706; color: #fff; }
+    pre {
+      background: #090d16;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 13px;
+      border: 1px solid #1e293b;
+      color: #38bdf8;
+      max-height: 300px;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover { background: #1d4ed8; }
+    input {
+      background: #0f172a;
+      border: 1px solid #334155;
+      padding: 8px 12px;
+      border-radius: 6px;
+      color: white;
+      font-size: 14px;
+      margin-right: 10px;
+      width: 200px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+  <h1>EduPresença - Diagnóstico de Conexão com o Firebase</h1>
+  
+  <div class="status-card">
+    <h3>1. Verificação de Carregamento dos Scripts (CDN)</h3>
+    <p>Firebase App: <span id="lib-app">Verificando...</span></p>
+    <p>Firebase Auth: <span id="lib-auth">Verificando...</span></p>
+    <p>Firebase Firestore: <span id="lib-firestore">Verificando...</span></p>
+    <p>Firebase Storage: <span id="lib-storage">Verificando...</span></p>
+  </div>
+
+  <div class="status-card">
+    <h3>2. Autenticação no Firebase (Necessário para testar permissões)</h3>
+    <div class="form-group" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;">
+      <div>
+        <label>E-mail de Acesso</label>
+        <input type="email" id="auth-email" value="admin@leandroyata.com.br" />
+      </div>
+      <div>
+        <label>Senha</label>
+        <input type="password" id="auth-password" value="admin123" />
+      </div>
+      <button id="btn-login" style="background: #10b981;">Autenticar (Fazer Login)</button>
+    </div>
+    <p>Status da Autenticação: <strong id="auth-status" style="color: #f59e0b;">Não autenticado</strong></p>
+  </div>
+
+  <div class="status-card">
+    <h3>3. Dados Locais Atuais (LocalStorage)</h3>
+    <p>Tabela de Usuários (edu_usuarios): <span id="local-users-info">Carregando...</span></p>
+    <p>Tabela de Disciplinas (edu_disciplinas): <span id="local-discs-info">Carregando...</span></p>
+  </div>
+
+  <div class="status-card">
+    <h3>4. Teste de Sincronização de Tabelas Reais</h3>
+    <button id="btn-run" disabled>1º Faça Login para Ativar o Botão de Teste</button>
+    <button id="btn-sync-users" disabled style="background: #a855f7;">Testar Upload da Tabela de Usuários</button>
+    <div id="test-results" style="margin-top: 15px;"></div>
+  </div>
+
+  <div class="status-card" style="border: 2px solid #ef4444; background: #2d1616;">
+    <h3 style="color: #fca5a5;">5. 🔥 RECUPERAÇÃO EMERGENCIAL DE DADOS</h3>
+    <p style="font-size: 13.5px; color: #fecdd3; line-height: 1.5; margin-bottom: 12px;">
+      Se você tem algum <strong>celular, tablet ou outro computador</strong> onde os seus professores, disciplinas e horários <strong>ainda aparecem</strong> (ou seja, que ainda não foram apagados pela sincronização com a nuvem vazia), faça o seguinte:
+    </p>
+    <ol style="font-size: 12.5px; color: #fca5a5; margin-left: 20px; line-height: 1.5; margin-bottom: 15px;">
+      <li>Desconecte o Wi-Fi/dados móveis desse aparelho <strong>antes</strong> de abrir o aplicativo normal para evitar que ele sincronize e apague tudo.</li>
+      <li>Abra o navegador <strong>nesse aparelho</strong> e acesse o endereço IP local do seu computador: <code>http://[IP_DO_COMPUTADOR]:8000/scratch_test.html</code> (ou o endereço correspondente).</li>
+      <li>Conecte a internet novamente apenas para fazer o login no painel acima.</li>
+      <li>Assim que o botão abaixo ficar ativo, clique nele para enviar os dados desse aparelho direto para a nuvem!</li>
+    </ol>
+    <button id="btn-force-upload" disabled style="background: #dc2626; font-size: 14px; padding: 12px 24px; border-radius: 8px;">
+      Forçar Envio de Todos os Dados Locais para a Nuvem
+    </button>
+  </div>
+
+  <!-- Firebase SDK (v10.x compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+  <script>
+    // Configuração do Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyCiGs7m58kEeAxzBzWMHFmEPrUcwLcX190",
+      authDomain: "edupresenca-9afd5.firebaseapp.com",
+      projectId: "edupresenca-9afd5",
+      storageBucket: "edupresenca-9afd5.firebasestorage.app",
+      messagingSenderId: "285667878422",
+      appId: "1:285667878422:web:33459268aa3cb3b836f737"
+    };
+
+    // Check script loads
+    function updateLibStatus() {
+      const appLoaded = typeof firebase !== 'undefined';
+      const authLoaded = appLoaded && typeof firebase.auth !== 'undefined';
+      const firestoreLoaded = appLoaded && typeof firebase.firestore !== 'undefined';
+      const storageLoaded = appLoaded && typeof firebase.storage !== 'undefined';
+
+      document.getElementById('lib-app').innerHTML = appLoaded 
+        ? '<span class="badge badge-success">OK</span> (Carregado)' 
+        : '<span class="badge badge-error">FALHA</span> (Não carregado)';
+      
+      document.getElementById('lib-auth').innerHTML = authLoaded 
+        ? '<span class="badge badge-success">OK</span> (Carregado)' 
+        : '<span class="badge badge-error">FALHA</span> (Não carregado)';
+
+      document.getElementById('lib-firestore').innerHTML = firestoreLoaded 
+        ? '<span class="badge badge-success">OK</span> (Carregado)' 
+        : '<span class="badge badge-error">FALHA</span> (Não carregado)';
+
+      document.getElementById('lib-storage').innerHTML = storageLoaded 
+        ? '<span class="badge badge-success">OK</span> (Carregado)' 
+        : '<span class="badge badge-error">FALHA</span> (Não carregado)';
+      
+      return { appLoaded, authLoaded, firestoreLoaded, storageLoaded };
+    }
+
+    // Load local data info
+    function loadLocalDataInfo() {
+      const usersStr = localStorage.getItem('edu_usuarios') || '[]';
+      const discsStr = localStorage.getItem('edu_usuarios') || '[]'; // wait, get disciplines correctly
+      let actualDiscsStr = '[]';
+      // Search for any active disciplines table in localStorage (including segregated ones)
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k.startsWith('edu_disciplinas')) {
+          actualDiscsStr = localStorage.getItem(k);
+          break;
+        }
+      }
+      if (actualDiscsStr === '[]') {
+        actualDiscsStr = localStorage.getItem('edu_disciplinas') || '[]';
+      }
+
+      try {
+        const users = JSON.parse(usersStr);
+        document.getElementById('local-users-info').innerHTML = `<strong>${users.length}</strong> usuários encontrados (${Math.round(usersStr.length / 1024)} KB)`;
+      } catch (e) {
+        document.getElementById('local-users-info').innerHTML = '<span class="badge badge-error">Erro ao ler</span>';
+      }
+
+      try {
+        const discs = JSON.parse(actualDiscsStr);
+        document.getElementById('local-discs-info').innerHTML = `<strong>${discs.length}</strong> disciplinas encontradas (${Math.round(actualDiscsStr.length / 1024)} KB)`;
+      } catch (e) {
+        document.getElementById('local-discs-info').innerHTML = '<span class="badge badge-error">Erro ao ler</span>';
+      }
+    }
+
+    const libs = updateLibStatus();
+    loadLocalDataInfo();
+
+    if (libs.appLoaded) {
+      try {
+        firebase.initializeApp(firebaseConfig);
+        console.log("Firebase inicializado no script de diagnóstico");
+        
+        // Listen to auth state
+        firebase.auth().onAuthStateChanged(user => {
+          const statusEl = document.getElementById('auth-status');
+          const btnRun = document.getElementById('btn-run');
+          const btnSyncUsers = document.getElementById('btn-sync-users');
+          const btnForceUpload = document.getElementById('btn-force-upload');
+          if (user) {
+            statusEl.innerHTML = `<span style="color: #10b981;">Autenticado como: ${user.email} (UID: ${user.uid})</span>`;
+            btnRun.disabled = false;
+            btnSyncUsers.disabled = false;
+            btnForceUpload.disabled = false;
+            btnRun.textContent = "Executar Teste Simples de Escrita";
+          } else {
+            statusEl.innerHTML = '<span style="color: #f59e0b;">Não autenticado</span>';
+            btnRun.disabled = true;
+            btnSyncUsers.disabled = true;
+            btnForceUpload.disabled = true;
+            btnRun.textContent = "1º Faça Login para Ativar o Botão de Teste";
+          }
+        });
+      } catch (err) {
+        console.error("Erro na inicialização:", err);
+      }
+    }
+
+    // Login Handler
+    document.getElementById('btn-login').addEventListener('click', async () => {
+      const email = document.getElementById('auth-email').value.trim();
+      const password = document.getElementById('auth-password').value;
+      const statusEl = document.getElementById('auth-status');
+
+      statusEl.innerHTML = '<span style="color: #38bdf8;">Autenticando...</span>';
+
+      try {
+        await firebase.auth().signInWithEmailAndPassword(email, password);
+      } catch (err) {
+        statusEl.innerHTML = `<span style="color: #ef4444;">Erro no Login: ${err.code} - ${err.message}</span>`;
+      }
+    });
+
+    // Run simple test
+    document.getElementById('btn-run').addEventListener('click', async () => {
+      const resultsEl = document.getElementById('test-results');
+      resultsEl.innerHTML = '<p>Executando teste simples... Aguarde.</p>';
+      
+      const logLines = [];
+      const log = (msg) => {
+        logLines.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
+        resultsEl.innerHTML = `<pre>${logLines.join('\n')}</pre>`;
+      };
+
+      try {
+        log("Obtendo instância do Firestore...");
+        const db = firebase.firestore();
+        const email = firebase.auth().currentUser.email;
+        const docRef = db.collection('edupresenca_sync').doc(email).collection('tabelas').doc('edu_config');
+
+        log("Escrevendo documento simples...");
+        await docRef.set({ lastTestTimestamp: new Date().toISOString(), testPassed: true }, { merge: true });
+        log("✅ SUCESSO: Escrita simples concluída com êxito!");
+      } catch (err) {
+        log(`❌ ERRO: ${err.message}`);
+      }
+    });
+
+    // Run users table upload test
+    document.getElementById('btn-sync-users').addEventListener('click', async () => {
+      const resultsEl = document.getElementById('test-results');
+      resultsEl.innerHTML = '<p>Testando envio da tabela de usuários... Aguarde.</p>';
+      
+      const logLines = [];
+      const log = (msg) => {
+        logLines.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
+        resultsEl.innerHTML = `<pre>${logLines.join('\n')}</pre>`;
+      };
+
+      try {
+        log("Obtendo instância do Firestore...");
+        const db = firebase.firestore();
+        const email = firebase.auth().currentUser.email;
+        const docRef = db.collection('edupresenca_sync').doc(email).collection('tabelas').doc('edu_usuarios');
+
+        log("Carregando tabela edu_usuarios do LocalStorage...");
+        const usersStr = localStorage.getItem('edu_usuarios') || '[]';
+        const users = JSON.parse(usersStr);
+
+        log(`Tabela contém ${users.length} usuários.`);
+        log("Iniciando escrita da tabela no Firestore...");
+        
+        await docRef.set({ items: users });
+        log("✅ SUCESSO: Tabela edu_usuarios enviada e gravada com sucesso no Firebase!");
+        log("Os dados de usuários estão sincronizando perfeitamente quando chamados!");
+      } catch (err) {
+        log(`❌ ERRO AO GRAVAR TABELA DE USUÁRIOS:`);
+        log(`Mensagem: ${err.message}`);
+        log(`Código: ${err.code}`);
+        if (err.message && err.message.includes('too large')) {
+          log("👉 ANÁLISE: A tabela é muito grande para um único documento no Firestore (limite de 1MB). Verifique se existem fotos em base64 não comprimidas.");
+        }
+      }
+    });
+
+    // Force upload all local tables to restore cloud
+    document.getElementById('btn-force-upload').addEventListener('click', async () => {
+      const resultsEl = document.getElementById('test-results');
+      resultsEl.innerHTML = '<p>Iniciando envio forçado de recuperação... Aguarde.</p>';
+      
+      const logLines = [];
+      const log = (msg) => {
+        logLines.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
+        resultsEl.innerHTML = `<pre>${logLines.join('\n')}</pre>`;
+      };
+
+      try {
+        log("Obtendo instância do Firestore...");
+        const db = firebase.firestore();
+        const email = firebase.auth().currentUser.email;
+
+        const KEYS = {
+            unidades: 'edu_unidades',
+            turnos: 'edu_turnos',
+            cursos: 'edu_cursos',
+            disciplinas: 'edu_disciplinas',
+            turmas: 'edu_turmas',
+            alunos: 'edu_alunos',
+            presencas: 'edu_presencas',
+            notas: 'edu_notas',
+            config: 'edu_config',
+            logs: 'edu_logs',
+            usuarios: 'edu_usuarios',
+            horarios: 'edu_horarios',
+        };
+
+        const activeYear = localStorage.getItem('edu_ano_letivo') || String(new Date().getFullYear());
+        log(`Ano letivo ativo detectado: ${activeYear}`);
+
+        const segregated = ['edu_turmas', 'edu_alunos', 'edu_presencas', 'edu_notas', 'edu_horarios'];
+
+        let uploadedCount = 0;
+        for (const [keyName, baseKey] of Object.entries(KEYS)) {
+          let finalKey = baseKey;
+          if (segregated.includes(baseKey)) {
+            finalKey = `${baseKey}_${activeYear}`;
+          }
+
+          const dataStr = localStorage.getItem(finalKey);
+          if (!dataStr) {
+            log(`Tabela ${finalKey}: Sem dados locais. Ignorando.`);
+            continue;
+          }
+
+          log(`Tabela ${finalKey}: Lendo dados...`);
+          const data = JSON.parse(dataStr);
+          const isObj = (baseKey === 'edu_config');
+
+          log(`Tabela ${finalKey}: Gravando na nuvem...`);
+          const docRef = db.collection('edupresenca_sync').doc(email).collection('tabelas').doc(finalKey);
+          await docRef.set(isObj ? data : { items: data });
+          log(`✅ Tabela ${finalKey} salva com sucesso no Firestore!`);
+          uploadedCount++;
+        }
+
+        if (uploadedCount > 0) {
+          log("🎉 SUCESSO: Todos os dados locais deste aparelho foram enviados e salvos na nuvem!");
+          log("Agora você pode atualizar e abrir os outros aparelhos com segurança.");
+        } else {
+          log("⚠️ AVISO: Nenhum dado local foi encontrado neste navegador para recuperar.");
+        }
+
+      } catch (err) {
+        log(`❌ ERRO NA RECUPERAÇÃO:`);
+        log(`Mensagem: ${err.message}`);
+        log(`Código: ${err.code}`);
+      }
+    });
+  </script>
+</body>
+</html>

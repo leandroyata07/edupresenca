@@ -24,6 +24,8 @@ export function render(outlet) {
     let activeTab = isProfessor ? 'professor' : 'turma'; // 'turma' | 'professor'
     let selectedTurmaId = '';
     let selectedProfessorId = isProfessor ? me.id : '';
+    let activeMobileDay = new Date().getDay();
+    if (activeMobileDay === 0 || activeMobileDay > 6) activeMobileDay = 1; // Default to Monday
 
     // Autoselect first class if available
     const allTurmas = turmas.getAll().sort((a, b) => a.nome.localeCompare(b.nome));
@@ -222,6 +224,13 @@ export function render(outlet) {
                     overflow: hidden;
                     text-overflow: ellipsis;
                 }
+                .hor-cell-teacher span, .hor-cell-teacher strong {
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    min-width: 0;
+                    flex: 1;
+                }
                 .hor-cell-avatar {
                     width: 16px;
                     height: 16px;
@@ -292,78 +301,141 @@ export function render(outlet) {
                     background: var(--primary-50, rgba(139, 92, 246, 0.02));
                 }
                 
+                .hor-desktop-grid {
+                    display: block;
+                }
+                .hor-mobile-list {
+                    display: none;
+                }
+                .day-short {
+                    display: none;
+                }
+                .day-full {
+                    display: inline;
+                }
+
                 /* Mobile Layout Adaptation */
                 @media (max-width: 860px) {
-                    .hor-grid-card {
+                    .hor-desktop-grid {
+                        display: none !important;
+                    }
+                    .hor-mobile-list {
+                        display: block !important;
+                    }
+                    .day-full {
+                        display: none;
+                    }
+                    .day-short {
+                        display: inline;
+                    }
+                    
+                    /* Mobile Tabbed View */
+                    .hor-mobile-day-tabs {
+                        display: flex;
+                        justify-content: space-between;
+                        background: var(--surface-2);
+                        padding: 4px;
+                        border-radius: 12px;
+                        border: 1px solid var(--border-color);
+                        margin-bottom: 20px;
+                        gap: 4px;
+                    }
+                    .hor-mobile-day-tab {
+                        flex: 1;
+                        padding: 8px 4px;
                         border: none;
                         background: transparent;
-                        box-shadow: none;
+                        color: var(--text-secondary);
+                        font-size: 12.5px;
+                        font-weight: 700;
+                        text-align: center;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
                     }
-                    .hor-grid-table, .hor-grid-table tbody, .hor-grid-tr {
-                        display: block;
-                        width: 100%;
+                    .hor-mobile-day-tab.active {
+                        background: var(--primary-500, #8b5cf6);
+                        color: #fff;
+                        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
                     }
-                    .hor-grid-table thead {
-                        display: none; /* Hide header columns */
+                    .hor-mobile-day-content {
+                        display: none;
+                        flex-direction: column;
+                        gap: 12px;
                     }
-                    .hor-grid-tr {
-                        margin-bottom: 24px;
+                    .hor-mobile-day-content.active {
+                        display: flex;
+                    }
+                    .hor-mobile-row {
+                        display: flex;
+                        align-items: stretch;
+                        gap: 12px;
                         background: var(--surface-2);
                         border: 1px solid var(--border-color);
                         border-radius: 14px;
-                        padding: 12px;
+                        padding: 10px;
                     }
-                    .hor-grid-td {
+                    .hor-mobile-time-col {
                         display: flex;
-                        width: 100% !important;
-                        height: auto;
-                        border: none;
-                        border-bottom: 1px dashed var(--border-color);
-                        padding: 10px 4px;
-                        align-items: center;
-                    }
-                    .hor-grid-td:first-child {
-                        background: var(--surface-3);
-                        border-radius: 8px;
-                        padding: 6px 12px;
-                        justify-content: center;
-                        margin-bottom: 8px;
-                        border-bottom: none;
-                    }
-                    .hor-grid-td:last-child {
-                        border-bottom: none;
-                    }
-                    .hor-grid-td::before {
-                        content: attr(data-day);
-                        font-size: 11px;
-                        font-weight: 700;
-                        text-transform: uppercase;
-                        color: var(--text-tertiary);
-                        width: 90px;
-                        flex-shrink: 0;
-                    }
-                    .hor-grid-td:first-child::before {
-                        content: none;
-                    }
-                    .hor-cell-card {
-                        flex: 1;
-                        height: 62px;
-                        flex-direction: row;
-                        align-items: center;
-                        padding: 6px 12px;
-                    }
-                    .hor-cell-empty-trigger {
-                        flex: 1;
-                        height: 38px;
-                        opacity: 0.65;
-                    }
-                    .hor-cell-footer {
-                        border-top: none;
-                        margin-top: 0;
-                        padding-top: 0;
                         flex-direction: column;
-                        align-items: flex-end;
-                        gap: 4px;
+                        justify-content: center;
+                        align-items: center;
+                        width: 75px;
+                        flex-shrink: 0;
+                        border-right: 1px dashed var(--border-color);
+                        padding-right: 10px;
+                    }
+                    .hor-mobile-period-num {
+                        font-size: 13px;
+                        font-weight: 700;
+                        color: var(--text-primary);
+                    }
+                    .hor-mobile-period-time {
+                        font-size: 10px;
+                        color: var(--text-tertiary);
+                        margin-top: 2px;
+                        text-align: center;
+                    }
+                    .hor-mobile-card-col {
+                        flex: 1;
+                        min-width: 0;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: center;
+                    }
+                    .hor-mobile-card-col .hor-cell-card {
+                        box-shadow: none;
+                        border-left-width: 4px;
+                        padding: 4px 8px;
+                        height: auto;
+                        min-height: 54px;
+                        background: var(--surface-1);
+                    }
+                    .hor-cell-vago {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        height: 54px;
+                        border: 1.5px dashed var(--border-color);
+                        border-radius: 10px;
+                        color: var(--text-tertiary);
+                        font-size: 12px;
+                        font-style: italic;
+                        background: rgba(255,255,255,0.005);
+                    }
+                    .hor-mobile-card-col .hor-cell-empty-trigger {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        height: 54px;
+                        border: 1.5px dashed var(--border-color);
+                        border-radius: 10px;
+                        color: var(--text-tertiary);
+                        font-size: 12px;
+                        font-weight: 600;
+                        gap: 6px;
+                        cursor: pointer;
+                        opacity: 0.8;
                     }
                 }
             </style>
@@ -579,7 +651,7 @@ export function render(outlet) {
                                     <span>Agendar</span>
                                 </div>
                             ` : `
-                                <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-tertiary);font-size:11px;font-style:italic">Vago</div>
+                                <div style="display:flex;align-items:center;justify-content:center;flex:1;height:38px;color:var(--text-tertiary);font-size:11px;font-style:italic">Vago</div>
                             `}
                         </td>
                     `;
@@ -589,32 +661,120 @@ export function render(outlet) {
             rowsHtml += `<tr class="hor-grid-tr">${cellsHtml}</tr>`;
         }
 
-        container.innerHTML = `
-            <div class="hor-grid-card">
-                <div style="overflow-x: auto;">
-                    <table class="hor-grid-table">
-                        <thead>
-                            <tr>
-                                <th class="hor-grid-th">Horário</th>
-                                ${DIAS_SEMANA.map(d => `<th class="hor-grid-th">${d.label}</th>`).join('')}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${rowsHtml}
-                        </tbody>
-                    </table>
+        // Build mobile layout
+        let mobileDaysHtml = '';
+        for (let d = 1; d <= 6; d++) {
+            const dayObj = DIAS_SEMANA.find(day => day.value === d);
+            const dayLabel = dayObj?.label || '';
+            let mobilePeriodsHtml = '';
+
+            for (let p = 1; p <= periodsCount; p++) {
+                const cellSched = scheds.find(h => Number(h.diaSemana) === d && Number(h.periodo) === p);
+                
+                if (cellSched) {
+                    const disc = disciplinas.getById(cellSched.disciplinaId);
+                    const prof = usuarios.getById(cellSched.professorId);
+                    const hue = stringToHue(prof?.nome || '?');
+                    const initials = getInitials(prof?.nome || '?');
+
+                    const avatarHtml = prof?.foto 
+                        ? `<img src="${prof.foto}" class="hor-cell-avatar" style="object-fit:cover;" />`
+                        : `<div class="hor-cell-avatar" style="background:hsl(${hue},60%,42%)">${initials}</div>`;
+
+                    mobilePeriodsHtml += `
+                        <div class="hor-mobile-row">
+                            <div class="hor-mobile-time-col">
+                                <span class="hor-mobile-period-num">${p}º Aula</span>
+                                <span class="hor-mobile-period-time">${cellSched.horarioInicio || '—'}–${cellSched.horarioFim || '—'}</span>
+                            </div>
+                            <div class="hor-mobile-card-col">
+                                <div class="hor-cell-card ${isGestor ? 'editable' : ''}" style="--cell-border-color: hsl(${stringToHue(disc?.nome || 'disc')},65%,45%)" data-sched-id="${cellSched.id}" data-day-val="${d}" data-period="${p}">
+                                    <div class="hor-cell-discipline" title="${eh(disc?.nome || '—')}">${eh(disc?.nome || '—')}</div>
+                                    <div class="hor-cell-teacher" title="${eh(prof?.nome || '—')}">
+                                        ${avatarHtml}
+                                        <span>${eh(prof?.nome || '—')}</span>
+                                    </div>
+                                    <div class="hor-cell-footer">
+                                        <span class="hor-badge-sala" title="${eh(cellSched.sala || '—')}">🚪 ${eh(cellSched.sala || '—')}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    mobilePeriodsHtml += `
+                        <div class="hor-mobile-row">
+                            <div class="hor-mobile-time-col">
+                                <span class="hor-mobile-period-num">${p}º Aula</span>
+                                <span class="hor-mobile-period-time">Vago</span>
+                            </div>
+                            <div class="hor-mobile-card-col">
+                                ${isGestor ? `
+                                    <div class="hor-cell-empty-trigger editable" data-sched-id="" data-day-val="${d}" data-period="${p}">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                        <span>Agendar</span>
+                                    </div>
+                                ` : `
+                                    <div class="hor-cell-vago">Vago</div>
+                                `}
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            mobileDaysHtml += `
+                <div class="hor-mobile-day-content ${d === activeMobileDay ? 'active' : ''}" id="mobile-day-content-${d}">
+                    ${mobilePeriodsHtml}
                 </div>
+            `;
+        }
+
+        container.innerHTML = `
+            <!-- Desktop Layout -->
+            <div class="hor-desktop-grid">
+                <div class="hor-grid-card">
+                    <div class="hor-grid-wrapper">
+                        <table class="hor-grid-table">
+                            <thead>
+                                <tr>
+                                    <th class="hor-grid-th">Horário</th>
+                                    ${DIAS_SEMANA.map(d => `
+                                        <th class="hor-grid-th">
+                                            <span class="day-full">${eh(d.label)}</span>
+                                            <span class="day-short">${eh(d.short)}</span>
+                                        </th>
+                                    `).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rowsHtml}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile Layout (Tabbed View) -->
+            <div class="hor-mobile-list">
+                <div class="hor-mobile-day-tabs">
+                    ${DIAS_SEMANA.map(d => `
+                        <button class="hor-mobile-day-tab ${d.value === activeMobileDay ? 'active' : ''}" data-day-val="${d.value}">
+                            ${d.short}
+                        </button>
+                    `).join('')}
+                </div>
+                ${mobileDaysHtml}
             </div>
         `;
 
-        // Handle cell clicks for managers
+        // Handle cell clicks for managers (both desktop & mobile)
         if (isGestor) {
-            container.querySelectorAll('.hor-grid-td.editable').forEach(td => {
-                td.addEventListener('click', (e) => {
-                    // Ignore clicks on inner components if they are not the main cell container
-                    const dayVal = td.dataset.dayVal;
-                    const period = td.dataset.period;
-                    const schedId = td.dataset.schedId;
+            container.querySelectorAll('.hor-grid-td.editable, .hor-mobile-card-col .editable').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    const dayVal = el.dataset.dayVal;
+                    const period = el.dataset.period;
+                    const schedId = el.dataset.schedId;
 
                     if (dayVal && period) {
                         openScheduleForm(schedId, Number(dayVal), Number(period));
@@ -622,6 +782,23 @@ export function render(outlet) {
                 });
             });
         }
+
+        // Handle mobile day tabs switching
+        container.querySelectorAll('.hor-mobile-day-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const dayVal = Number(tab.dataset.dayVal);
+                activeMobileDay = dayVal;
+                
+                container.querySelectorAll('.hor-mobile-day-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                container.querySelectorAll('.hor-mobile-day-content').forEach(c => c.classList.remove('active'));
+                const activeContent = container.querySelector(`#mobile-day-content-${dayVal}`);
+                if (activeContent) {
+                    activeContent.classList.add('active');
+                }
+            });
+        });
     }
 
     // Grid rendering: Teacher Specific (Read-only list/grid)
@@ -680,7 +857,7 @@ export function render(outlet) {
                 } else {
                     cellsHtml += `
                         <td class="hor-grid-td" data-day="${dayLabel}">
-                            <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-tertiary);font-size:11px;font-style:italic">Livre</div>
+                            <div style="display:flex;align-items:center;justify-content:center;flex:1;height:38px;color:var(--text-tertiary);font-size:11px;font-style:italic">Livre</div>
                         </td>
                     `;
                 }
@@ -689,23 +866,118 @@ export function render(outlet) {
             rowsHtml += `<tr class="hor-grid-tr">${cellsHtml}</tr>`;
         }
 
+        // Build mobile layout
+        let mobileDaysHtml = '';
+        for (let d = 1; d <= 6; d++) {
+            const dayObj = DIAS_SEMANA.find(day => day.value === d);
+            const dayLabel = dayObj?.label || '';
+            let mobilePeriodsHtml = '';
+
+            for (let p = 1; p <= periodsCount; p++) {
+                const cellSched = scheds.find(h => Number(h.diaSemana) === d && Number(h.periodo) === p);
+                
+                if (cellSched) {
+                    const disc = disciplinas.getById(cellSched.disciplinaId);
+                    const turma = turmas.getById(cellSched.turmaId);
+
+                    mobilePeriodsHtml += `
+                        <div class="hor-mobile-row">
+                            <div class="hor-mobile-time-col">
+                                <span class="hor-mobile-period-num">${p}º Aula</span>
+                                <span class="hor-mobile-period-time">${cellSched.horarioInicio || '—'}–${cellSched.horarioFim || '—'}</span>
+                            </div>
+                            <div class="hor-mobile-card-col">
+                                <div class="hor-cell-card" style="--cell-border-color: var(--primary-500, #8b5cf6)">
+                                    <div class="hor-cell-discipline" title="${eh(disc?.nome || '—')}">${eh(disc?.nome || '—')}</div>
+                                    <div class="hor-cell-teacher" title="${eh(turma?.nome || '—')}">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-tertiary)"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                                        <strong style="color:var(--text-primary); margin-left: 4px;">${eh(turma?.nome || '—')}</strong>
+                                    </div>
+                                    <div class="hor-cell-footer">
+                                        <span class="hor-badge-sala" title="${eh(cellSched.sala || '—')}" style="background:var(--danger-50, rgba(239,68,68,0.05)); color:var(--danger-500, #ef4444); border-color:var(--danger-100, rgba(239,68,68,0.15))">
+                                            🚪 ${eh(cellSched.sala || '—')}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    mobilePeriodsHtml += `
+                        <div class="hor-mobile-row">
+                            <div class="hor-mobile-time-col">
+                                <span class="hor-mobile-period-num">${p}º Aula</span>
+                                <span class="hor-mobile-period-time">Livre</span>
+                            </div>
+                            <div class="hor-mobile-card-col">
+                                <div class="hor-cell-vago">Livre</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            mobileDaysHtml += `
+                <div class="hor-mobile-day-content ${d === activeMobileDay ? 'active' : ''}" id="mobile-day-content-${d}">
+                    ${mobilePeriodsHtml}
+                </div>
+            `;
+        }
+
         container.innerHTML = `
-            <div class="hor-grid-card">
-                <div style="overflow-x: auto;">
-                    <table class="hor-grid-table">
-                        <thead>
-                            <tr>
-                                <th class="hor-grid-th">Horário</th>
-                                ${DIAS_SEMANA.map(d => `<th class="hor-grid-th">${d.label}</th>`).join('')}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${rowsHtml}
-                        </tbody>
-                    </table>
+            <!-- Desktop Layout -->
+            <div class="hor-desktop-grid">
+                <div class="hor-grid-card">
+                    <div class="hor-grid-wrapper">
+                        <table class="hor-grid-table">
+                            <thead>
+                                <tr>
+                                    <th class="hor-grid-th">Horário</th>
+                                    ${DIAS_SEMANA.map(d => `
+                                        <th class="hor-grid-th">
+                                            <span class="day-full">${eh(d.label)}</span>
+                                            <span class="day-short">${eh(d.short)}</span>
+                                        </th>
+                                    `).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rowsHtml}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
+
+            <!-- Mobile Layout (Tabbed View) -->
+            <div class="hor-mobile-list">
+                <div class="hor-mobile-day-tabs">
+                    ${DIAS_SEMANA.map(d => `
+                        <button class="hor-mobile-day-tab ${d.value === activeMobileDay ? 'active' : ''}" data-day-val="${d.value}">
+                            ${d.short}
+                        </button>
+                    `).join('')}
+                </div>
+                ${mobileDaysHtml}
+            </div>
         `;
+
+        // Handle mobile day tabs switching
+        container.querySelectorAll('.hor-mobile-day-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const dayVal = Number(tab.dataset.dayVal);
+                activeMobileDay = dayVal;
+                
+                container.querySelectorAll('.hor-mobile-day-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                container.querySelectorAll('.hor-mobile-day-content').forEach(c => c.classList.remove('active'));
+                const activeContent = container.querySelector(`#mobile-day-content-${dayVal}`);
+                if (activeContent) {
+                    activeContent.classList.add('active');
+                }
+            });
+        });
     }
 
     // Modal forms: Admin Add/Edit schedule slot

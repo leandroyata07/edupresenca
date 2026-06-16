@@ -199,6 +199,7 @@ function injectTrialStyles() {
         /* Adjust app shell to push down when banner is present */
         body:has(#trial-banner) .app-shell { margin-top: 36px; height: calc(100vh - 36px); }
         body:has(#trial-banner) app-sidebar { top: 36px; height: calc(100vh - 36px); }
+        body:has(#trial-banner) app-header { top: 36px; }
     `;
     document.head.appendChild(style);
 }

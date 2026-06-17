@@ -37,7 +37,7 @@ export function render(outlet) {
     <!-- Filter -->
     <div class="card" style="margin-bottom:var(--space-6)">
       <div class="card-body" style="padding:var(--space-5)">
-        <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr auto;align-items:end">
+        <div class="filter-grid">
           <div class="form-group">
             <label class="form-label" for="n-turma">Turma <span class="required">*</span></label>
             <select class="form-control" id="n-turma">

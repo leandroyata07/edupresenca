@@ -161,6 +161,23 @@ app-header {
     grid-column: 1 / -1;
 }
 
+/* Filter grid for page filters (e.g., Grades, Attendance) */
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr) auto;
+    gap: var(--space-4);
+    align-items: end;
+}
+
+@media (max-width: 768px) {
+    .filter-grid {
+        grid-template-columns: 1fr;
+    }
+    .filter-grid .btn {
+        width: 100%;
+    }
+}
+
 /* ── Flex utilities ───────────────────────────────────────── */
 .flex {
     display: flex;

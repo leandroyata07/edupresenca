@@ -158,7 +158,32 @@ export function render(outlet) {
     const qtdAval = Number(discObj?.qtdAvaliacoes || 1);
 
     notasEl.innerHTML = `
-      <div class="card">
+      <style>
+        .sticky-save-bar {
+            position: sticky;
+            top: var(--header-height, 64px);
+            z-index: 10;
+            background: var(--bg-surface);
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            box-shadow: 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        @media (max-width: 640px) {
+            .sticky-save-bar {
+                padding: 12px;
+                justify-content: stretch;
+            }
+            .sticky-save-bar .btn {
+                flex: 1;
+                justify-content: center;
+                height: 44px;
+            }
+        }
+      </style>
+      <div class="card" style="overflow:visible">
         <div class="card-header">
           <span class="card-title">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -167,24 +192,23 @@ export function render(outlet) {
             </svg>
             ${eh(turma?.nome)} – ${eh(disciplina)} – ${eh(periodo)}
           </span>
-          ${isProfessor ? `
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-ghost" id="btn-limpar-notas" title="Limpar todos os campos desta tabela">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-              </svg>
-              Limpar
-            </button>
-            <button class="btn btn-primary" id="btn-salvar-notas">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                <polyline points="17 21 17 13 7 13 7 21"/>
-                <polyline points="7 3 7 8 15 8"/>
-              </svg>
-              Salvar notas
-            </button>
-          </div>
-          ` : ''}
+        </div>
+
+        <div class="sticky-save-bar">
+          <button class="btn btn-ghost" id="btn-limpar-notas" title="${isProfessor ? 'Limpar todos os campos desta tabela' : 'Apenas professores podem limpar notas'}" ${isProfessor ? '' : 'disabled style="cursor:not-allowed;opacity:0.6"'}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+            Limpar
+          </button>
+          <button class="btn btn-primary" id="btn-salvar-notas" ${isProfessor ? '' : 'disabled style="cursor:not-allowed;opacity:0.6"'} title="${isProfessor ? 'Salvar notas' : 'Apenas professores podem salvar notas'}">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+            Salvar notas
+          </button>
         </div>
 
         <div class="table-wrapper">

@@ -154,6 +154,72 @@
     width: 100%;
 }
 
+/* Floating Action Button (FAB) for Quick Save */
+.fab-save {
+    position: fixed;
+    bottom: var(--space-6, 24px);
+    right: var(--space-6, 24px);
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--gradient-primary);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: var(--z-header, 100);
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
+}
+
+.fab-save:hover {
+    transform: scale(1.1) translateY(-2px);
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+}
+
+.fab-save:active {
+    transform: scale(0.95);
+}
+
+.fab-save svg {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+}
+
+/* Barra Flutuante de Salvar (Sticky Save Bar) */
+.sticky-save-bar {
+    position: sticky;
+    top: var(--header-height, 64px);
+    z-index: 10;
+    background: var(--bg-surface);
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    box-shadow: 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+@media (max-width: 640px) {
+    .sticky-save-bar {
+        padding: 12px;
+        justify-content: stretch;
+    }
+    .sticky-save-bar .btn {
+        flex: 1;
+        justify-content: center;
+        height: 44px;
+    }
+}
+
+/* Extra spacing at the bottom of the list so it doesn't get hidden under the FAB */
+#alunos-list {
+    padding-bottom: 80px;
+}
+
 /* ── Cards ────────────────────────────────────────────────── */
 .card {
     background: var(--bg-surface);

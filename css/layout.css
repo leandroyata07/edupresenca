@@ -48,8 +48,6 @@ app-header {
 .app-content {
     flex: 1;
     padding: var(--space-6);
-    overflow-y: auto;
-    overflow-x: hidden;
     background: var(--bg-app);
 }
 

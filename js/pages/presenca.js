@@ -284,8 +284,30 @@ export function render(outlet) {
                 margin-top: 4px;
             }
         }
+        /* Estilo para a barra do botão Salvar */
+        .sticky-save-bar {
+            position: sticky;
+            top: var(--header-height, 64px);
+            z-index: 10;
+            background: var(--bg-surface);
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            box-shadow: 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        @media (max-width: 640px) {
+            .sticky-save-bar {
+                padding: 12px;
+                justify-content: center;
+            }
+            .sticky-save-bar #btn-salvar {
+                width: 100%;
+                height: 44px;
+            }
+        }
       </style>
-      <div class="card">
+      <div class="card" style="overflow:visible">
         <div class="card-header">
           <span class="card-title">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -293,15 +315,13 @@ export function render(outlet) {
           </span>
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
             <span id="presence-summary" class="badge">0 presentes</span>
-            ${isProfessor ? `
-            <button class="btn btn-secondary btn-sm" id="btn-marcar-todos">✓ Todos presentes</button>
-            <button class="btn btn-secondary btn-sm" id="btn-limpar">✗ Todos ausentes</button>
+            <button class="btn btn-secondary btn-sm" id="btn-marcar-todos" ${isProfessor ? '' : 'disabled style="cursor:not-allowed;opacity:0.6"'}>✓ Todos presentes</button>
+            <button class="btn btn-secondary btn-sm" id="btn-limpar" ${isProfessor ? '' : 'disabled style="cursor:not-allowed;opacity:0.6"'}>✗ Todos ausentes</button>
             ${savedRegistros.length > 0 ? `
-            <button class="btn btn-secondary btn-sm" id="btn-excluir-chamada" style="background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.25)" title="Excluir lançamentos deste dia e retornar para indefinido">
+            <button class="btn btn-secondary btn-sm" id="btn-excluir-chamada" style="background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.25);${isProfessor ? '' : 'cursor:not-allowed;opacity:0.6'}" ${isProfessor ? '' : 'disabled'} title="Excluir lançamentos deste dia e retornar para indefinido">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
               Excluir Lançamentos
             </button>
-            ` : ''}
             ` : ''}
             <button class="btn btn-ghost btn-sm" id="btn-chamada" title="Lista de chamada imprimível">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -312,13 +332,14 @@ export function render(outlet) {
               </svg>
               Lista de Chamada
             </button>
-            ${isProfessor ? `
-            <button class="btn btn-primary" id="btn-salvar">
+          </div>
+        </div>
+
+        <div class="sticky-save-bar">
+            <button class="btn btn-primary" id="btn-salvar" ${isProfessor ? '' : 'disabled style="cursor:not-allowed;opacity:0.6"'} title="${isProfessor ? 'Salvar chamada' : 'Apenas professores podem salvar'}">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
               Salvar chamada
             </button>
-            ` : ''}
-          </div>
         </div>
 
         <div class="card-body" style="padding:0">

@@ -15,10 +15,12 @@ export function render(outlet) {
     showBaixaFrequencia: true,
     // Filtros Específicos
     filtroData: new Date().toISOString().split('T')[0],
+    filtroDataFim: new Date().toISOString().split('T')[0],
     filtroAlunoId: '',
     filtroDisciplina: '',
     filtroTurmaId: '',
     filtroUnidadeId: '',
+    filtroCursoId: '',
     filtroTurnoId: '',
     filtroUf: '',
     filtroCidade: ''
@@ -231,10 +233,22 @@ export function render(outlet) {
     render(outlet);
   });
 
+  // Helper para atualizar apenas a tabela sem recriar os filtros (evita perder o foco)
+  const updateContentView = () => {
+    const view = outlet.querySelector('#relatorio-content-view');
+    if (view) {
+      view.innerHTML = renderContent(window.relatoriosState, allTurmas, allAlunos, allCursos, allUnidades, allPresencas, allNotas, totalAlunos, totalTurmas, totalCursos, totalUnidades, frequenciaPorTurma, relatorioNotas, alunosFrequenciaBaixa);
+    }
+  };
+
   // Filtros de Data
   outlet.querySelector('#filtro-data-input')?.addEventListener('change', (e) => {
     window.relatoriosState.filtroData = e.target.value;
-    render(outlet);
+    updateContentView();
+  });
+  outlet.querySelector('#filtro-data-fim')?.addEventListener('change', (e) => {
+    window.relatoriosState.filtroDataFim = e.target.value;
+    updateContentView();
   });
 
   // Filtros de Seleção (Aluno, Turma, Disciplina, Unidade, Turno, Estado, Cidade)
@@ -245,6 +259,7 @@ export function render(outlet) {
       if (id === 'select-turma') window.relatoriosState.filtroTurmaId = e.target.value;
       if (id === 'select-disciplina') window.relatoriosState.filtroDisciplina = e.target.value;
       if (id === 'select-unidade') window.relatoriosState.filtroUnidadeId = e.target.value;
+      if (id === 'select-curso') window.relatoriosState.filtroCursoId = e.target.value;
       if (id === 'select-turno') window.relatoriosState.filtroTurnoId = e.target.value;
       if (id === 'select-uf') {
         window.relatoriosState.filtroUf = e.target.value;
@@ -308,31 +323,111 @@ function renderFiltrosCondicionais(state, alunos, turmas, notas) {
 
   if (state.tipoRelatorio === 'data') {
     return `
-      <div class="form-group" style="min-width: 180px;">
-        <label class="form-label">Data</label>
+      <div class="form-group" style="min-width: 150px;">
+        <label class="form-label">Data Início (De)</label>
         <input type="date" class="form-control" id="filtro-data-input" value="${eh(state.filtroData)}">
+      </div>
+      <div class="form-group" style="min-width: 150px;">
+        <label class="form-label">Data Fim (Até)</label>
+        <input type="date" class="form-control" id="filtro-data-fim" value="${eh(state.filtroDataFim)}">
       </div>
     `;
   }
 
   if (state.tipoRelatorio === 'aluno') {
+    const allUnidades = unidades.getAll().sort((a, b) => a.nome.localeCompare(b.nome));
+    const allCursos = cursos.getAll().sort((a, b) => a.nome.localeCompare(b.nome));
+    const allTurnos = turnos.getAll().sort((a, b) => a.nome.localeCompare(b.nome));
+
+    let filteredAlunos = alunos;
+    if (state.filtroUnidadeId) filteredAlunos = filteredAlunos.filter(a => a.unidadeId === state.filtroUnidadeId);
+    if (state.filtroTurmaId) filteredAlunos = filteredAlunos.filter(a => a.turmaId === state.filtroTurmaId);
+    if (state.filtroCursoId) filteredAlunos = filteredAlunos.filter(a => {
+      const t = turmas.find(x => x.id === a.turmaId);
+      return t && t.cursoId === state.filtroCursoId;
+    });
+    if (state.filtroTurnoId) filteredAlunos = filteredAlunos.filter(a => {
+      const t = turmas.find(x => x.id === a.turmaId);
+      return t && t.turnoId === state.filtroTurnoId;
+    });
+
     return `
+      <div class="form-group" style="min-width: 140px;">
+        <label class="form-label">Unidade</label>
+        <select class="form-control filtro-select-dinamico" id="select-unidade">
+          <option value="">Todas</option>
+          ${allUnidades.map(u => `<option value="${u.id}" ${state.filtroUnidadeId === u.id ? 'selected' : ''}>${eh(u.nome)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="min-width: 140px;">
+        <label class="form-label">Curso</label>
+        <select class="form-control filtro-select-dinamico" id="select-curso">
+          <option value="">Todos</option>
+          ${allCursos.map(c => `<option value="${c.id}" ${state.filtroCursoId === c.id ? 'selected' : ''}>${eh(c.nome)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="min-width: 140px;">
+        <label class="form-label">Turno</label>
+        <select class="form-control filtro-select-dinamico" id="select-turno">
+          <option value="">Todos</option>
+          ${allTurnos.map(t => `<option value="${t.id}" ${state.filtroTurnoId === t.id ? 'selected' : ''}>${eh(t.nome)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="min-width: 140px;">
+        <label class="form-label">Turma</label>
+        <select class="form-control filtro-select-dinamico" id="select-turma">
+          <option value="">Todas</option>
+          ${turmas.map(t => `<option value="${t.id}" ${state.filtroTurmaId == t.id ? 'selected' : ''}>${eh(t.nome)}</option>`).join('')}
+        </select>
+      </div>
       <div class="form-group" style="min-width: 250px;">
         <label class="form-label">Selecionar Aluno</label>
         <select class="form-control filtro-select-dinamico" id="select-aluno">
           <option value="">Selecione um aluno...</option>
-          ${alunos.map(a => `<option value="${a.id}" ${state.filtroAlunoId == a.id ? 'selected' : ''}>${eh(a.nome)}</option>`).join('')}
+          ${filteredAlunos.map(a => `<option value="${a.id}" ${state.filtroAlunoId == a.id ? 'selected' : ''}>${eh(a.nome)}</option>`).join('')}
         </select>
       </div>
     `;
   }
 
   if (state.tipoRelatorio === 'disciplina') {
+    const allUnidades = unidades.getAll().sort((a, b) => a.nome.localeCompare(b.nome));
+    const allCursos = cursos.getAll().sort((a, b) => a.nome.localeCompare(b.nome));
+    const allTurnos = turnos.getAll().sort((a, b) => a.nome.localeCompare(b.nome));
+
     const dMap = new Set();
     notas.forEach(n => { if (n.disciplina) dMap.add(n.disciplina) });
     const discs = Array.from(dMap).sort();
 
     return `
+      <div class="form-group" style="min-width: 140px;">
+        <label class="form-label">Unidade</label>
+        <select class="form-control filtro-select-dinamico" id="select-unidade">
+          <option value="">Todas</option>
+          ${allUnidades.map(u => `<option value="${u.id}" ${state.filtroUnidadeId === u.id ? 'selected' : ''}>${eh(u.nome)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="min-width: 140px;">
+        <label class="form-label">Curso</label>
+        <select class="form-control filtro-select-dinamico" id="select-curso">
+          <option value="">Todos</option>
+          ${allCursos.map(c => `<option value="${c.id}" ${state.filtroCursoId === c.id ? 'selected' : ''}>${eh(c.nome)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="min-width: 140px;">
+        <label class="form-label">Turno</label>
+        <select class="form-control filtro-select-dinamico" id="select-turno">
+          <option value="">Todos</option>
+          ${allTurnos.map(t => `<option value="${t.id}" ${state.filtroTurnoId === t.id ? 'selected' : ''}>${eh(t.nome)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="min-width: 140px;">
+        <label class="form-label">Turma</label>
+        <select class="form-control filtro-select-dinamico" id="select-turma">
+          <option value="">Todas</option>
+          ${turmas.map(t => `<option value="${t.id}" ${state.filtroTurmaId == t.id ? 'selected' : ''}>${eh(t.nome)}</option>`).join('')}
+        </select>
+      </div>
       <div class="form-group" style="min-width: 200px;">
         <label class="form-label">Disciplina</label>
         <select class="form-control filtro-select-dinamico" id="select-disciplina">
@@ -358,13 +453,13 @@ function renderFiltrosCondicionais(state, alunos, turmas, notas) {
   if (state.tipoRelatorio === 'censo') {
     const allUnidades = unidades.getAll().sort((a, b) => a.nome.localeCompare(b.nome));
     const allTurnos = turnos.getAll().sort((a, b) => a.nome.localeCompare(b.nome));
-    const ufsList = [...new Set(alunos.getAll().map(a => a.uf).filter(Boolean))].sort();
+    const ufsList = [...new Set(alunos.map(a => a.uf).filter(Boolean))].sort();
     
     let cidadesList = [];
     if (state.filtroUf) {
-      cidadesList = [...new Set(alunos.getAll().filter(a => a.uf === state.filtroUf).map(a => a.cidade).filter(Boolean))].sort();
+      cidadesList = [...new Set(alunos.filter(a => a.uf === state.filtroUf).map(a => a.cidade).filter(Boolean))].sort();
     } else {
-      cidadesList = [...new Set(alunos.getAll().map(a => a.cidade).filter(Boolean))].sort();
+      cidadesList = [...new Set(alunos.map(a => a.cidade).filter(Boolean))].sort();
     }
 
     return `
@@ -485,17 +580,24 @@ function renderGeral(state, totalAlunos, totalTurmas, totalCursos, totalUnidades
 }
 
 function renderPorData(state, allPresencas, allAlunos, allTurmas) {
-  if (!state.filtroData) return '<div class="empty-state"><p>Escolha uma data.</p></div>';
+  if (!state.filtroData || !state.filtroDataFim) return '<div class="empty-state"><p>Escolha um período válido (Data Início e Data Fim).</p></div>';
 
-  const registros = allPresencas.filter(p => p.data === state.filtroData);
-  if (registros.length === 0) return '<div class="empty-state"><p>Nenhuma chamada registrada nesta data.</p></div>';
+  if (state.filtroData > state.filtroDataFim) {
+    return '<div class="empty-state"><p>A Data Início não pode ser maior que a Data Fim.</p></div>';
+  }
+
+  const registros = allPresencas.filter(p => p.data >= state.filtroData && p.data <= state.filtroDataFim);
+  if (registros.length === 0) return '<div class="empty-state"><p>Nenhuma chamada registrada neste período.</p></div>';
+
+  // Ordenar registros por data (decrescente)
+  registros.sort((a, b) => new Date(b.data) - new Date(a.data));
 
   return `
     <div class="card">
-      <div class="card-header"><span class="card-title">Presença no dia ${formatDate(state.filtroData)}</span></div>
+      <div class="card-header"><span class="card-title">Presenças: ${formatDate(state.filtroData)} a ${formatDate(state.filtroDataFim)}</span></div>
       <div class="table-wrapper">
         <table>
-          <thead><tr><th>Aluno</th><th>Turma</th><th>Situação</th></tr></thead>
+          <thead><tr><th>Data</th><th>Aluno</th><th>Turma</th><th>Situação</th></tr></thead>
           <tbody>
             ${registros.map(r => {
     const aluno = allAlunos.find(a => a.id === r.alunoId);
@@ -503,7 +605,7 @@ function renderPorData(state, allPresencas, allAlunos, allTurmas) {
     const statusSpan = r.presente
       ? '<span style="color:var(--secondary-500); font-weight:700;">Presente</span>'
       : '<span style="color:var(--danger-500); font-weight:700;">Ausente</span>';
-    return `<tr><td>${eh(aluno?.nome || '—')}</td><td>${eh(turma?.nome || '—')}</td><td>${statusSpan}</td></tr>`;
+    return `<tr><td>${formatDate(r.data)}</td><td>${eh(aluno?.nome || '—')}</td><td>${eh(turma?.nome || '—')}</td><td>${statusSpan}</td></tr>`;
   }).join('')}
           </tbody>
         </table>
@@ -558,7 +660,21 @@ function renderPorDisciplina(state, allNotas, allAlunos, allTurmas) {
   let nList = allNotas;
   if (state.filtroDisciplina) nList = nList.filter(n => n.disciplina === state.filtroDisciplina);
 
-  if (nList.length === 0) return '<div class="empty-state"><p>Nenhuma nota encontrada para o filtro selecionado.</p></div>';
+  // Apply cascade filters
+  nList = nList.filter(n => {
+    const aluno = allAlunos.find(a => a.id === n.alunoId);
+    if (!aluno) return false;
+    const turma = allTurmas.find(t => t.id === aluno.turmaId);
+    
+    if (state.filtroUnidadeId && aluno.unidadeId !== state.filtroUnidadeId) return false;
+    if (state.filtroTurmaId && aluno.turmaId !== state.filtroTurmaId) return false;
+    if (state.filtroCursoId && (!turma || turma.cursoId !== state.filtroCursoId)) return false;
+    if (state.filtroTurnoId && (!turma || turma.turnoId !== state.filtroTurnoId)) return false;
+    
+    return true;
+  });
+
+  if (nList.length === 0) return '<div class="empty-state"><p>Nenhuma nota encontrada para os filtros selecionados.</p></div>';
 
   return `
     <div class="card">
@@ -679,22 +795,25 @@ function renderCenso(state, allAlunos, allTurmas) {
     }
   });
 
-  // ── Cor / Raça (IBGE) ──
+  // ── Cor / Raça (IBGE) com Sexo ──
   const corCounts = {
-    'Branca': 0,
-    'Preta': 0,
-    'Parda': 0,
-    'Amarela': 0,
-    'Indígena': 0,
-    'Não declarado': 0
+    'Branca': { total: 0, m: 0, f: 0, o: 0 },
+    'Preta': { total: 0, m: 0, f: 0, o: 0 },
+    'Parda': { total: 0, m: 0, f: 0, o: 0 },
+    'Amarela': { total: 0, m: 0, f: 0, o: 0 },
+    'Indígena': { total: 0, m: 0, f: 0, o: 0 },
+    'Não declarado': { total: 0, m: 0, f: 0, o: 0 }
   };
   filtered.forEach(a => {
-    const c = a.cor || 'Não declarado';
-    if (corCounts[c] !== undefined) {
-      corCounts[c]++;
-    } else {
-      corCounts['Não declarado']++;
-    }
+    let c = a.cor || 'Não declarado';
+    if (corCounts[c] === undefined) c = 'Não declarado';
+    
+    const s = a.sexo || 'Outro';
+    
+    corCounts[c].total++;
+    if (s === 'Masculino') corCounts[c].m++;
+    else if (s === 'Feminino') corCounts[c].f++;
+    else corCounts[c].o++;
   });
 
   // ── Faixa Etária e Média ──
@@ -789,7 +908,8 @@ function renderCenso(state, allAlunos, allTurmas) {
           Distribuição por Cor ou Raça (IBGE)
         </div>
         <div class="card-body" style="padding: var(--space-6);">
-          ${Object.entries(corCounts).map(([label, count]) => {
+          ${Object.entries(corCounts).map(([label, data]) => {
+            const count = data.total;
             const pct = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0';
             let barColor = 'var(--primary-400)';
             if (label === 'Preta') barColor = '#4b5563';
@@ -797,11 +917,21 @@ function renderCenso(state, allAlunos, allTurmas) {
             if (label === 'Amarela') barColor = '#eab308';
             if (label === 'Indígena') barColor = '#10b981';
             if (label === 'Não declarado') barColor = 'var(--neutral-400)';
+
+            let breakdownText = '';
+            if (count > 0) {
+              const parts = [];
+              if (data.f > 0) parts.push(`${data.f} feminino`);
+              if (data.m > 0) parts.push(`${data.m} masculino`);
+              if (data.o > 0) parts.push(`${data.o} outro`);
+              breakdownText = ` = ${parts.join(', ')}`;
+            }
+
             return `
               <div style="margin-bottom: var(--space-4);">
                 <div style="display:flex; justify-content: space-between; margin-bottom: 4px; font-size: 13px; font-weight: 600;">
                   <span>${label}</span>
-                  <span style="color:var(--text-secondary); font-size:12px;">${count} aluno(s) (${pct}%)</span>
+                  <span style="color:var(--text-secondary); font-size:12px;">${count} aluno(s)<span style="font-weight:normal; font-size:11px">${breakdownText}</span> &nbsp;|&nbsp; ${pct}%</span>
                 </div>
                 <div style="height:8px; background:var(--bg-tertiary,#e2e8f0); border-radius:4px; overflow:hidden;">
                   <div style="width:${pct}%; height:100%; background:${barColor}; border-radius:4px; transition:width 0.6s ease;"></div>
@@ -950,13 +1080,17 @@ function exportarAgregadosCSV(state, allAlunos, allTurmas, allNotas, allPresenca
     }
   }
 
-  else if (state.tipoRelatorio === 'data' && state.filtroData) {
-    csvContent += `Presencas (${state.filtroData})\n`;
-    csvContent += 'Aluno,Turma,Situacao\n';
-    allPresencas.filter(p => p.data === state.filtroData).forEach(p => {
+  else if (state.tipoRelatorio === 'data' && state.filtroData && state.filtroDataFim) {
+    csvContent += `Presencas (${state.filtroData} a ${state.filtroDataFim})\n`;
+    csvContent += 'Data,Aluno,Turma,Situacao\n';
+    
+    const registros = allPresencas.filter(p => p.data >= state.filtroData && p.data <= state.filtroDataFim);
+    registros.sort((a, b) => new Date(b.data) - new Date(a.data));
+    
+    registros.forEach(p => {
       const a = allAlunos.find(x => x.id === p.alunoId);
       const t = a ? allTurmas.find(x => x.id === a.turmaId) : null;
-      csvContent += `${a?.nome || '?'},${t?.nome || '?'},${p.presente ? 'Presente' : 'Ausente'}\n`;
+      csvContent += `${formatDate(p.data)},${a?.nome || '?'},${t?.nome || '?'},${p.presente ? 'Presente' : 'Ausente'}\n`;
     });
   }
 
@@ -1025,16 +1159,28 @@ function exportarAgregadosCSV(state, allAlunos, allTurmas, allNotas, allPresenca
     csvContent += "\n";
 
     // Cor / Raça
-    const corCounts = { 'Branca': 0, 'Preta': 0, 'Parda': 0, 'Amarela': 0, 'Indígena': 0, 'Não declarado': 0 };
+    const corCounts = { 
+      'Branca': { total: 0, m: 0, f: 0, o: 0 },
+      'Preta': { total: 0, m: 0, f: 0, o: 0 },
+      'Parda': { total: 0, m: 0, f: 0, o: 0 },
+      'Amarela': { total: 0, m: 0, f: 0, o: 0 },
+      'Indígena': { total: 0, m: 0, f: 0, o: 0 },
+      'Não declarado': { total: 0, m: 0, f: 0, o: 0 }
+    };
     filtered.forEach(a => {
-      const c = a.cor || 'Não declarado';
-      if (corCounts[c] !== undefined) corCounts[c]++;
-      else corCounts['Não declarado']++;
+      let c = a.cor || 'Não declarado';
+      if (corCounts[c] === undefined) c = 'Não declarado';
+      const s = a.sexo || 'Outro';
+      
+      corCounts[c].total++;
+      if (s === 'Masculino') corCounts[c].m++;
+      else if (s === 'Feminino') corCounts[c].f++;
+      else corCounts[c].o++;
     });
-    csvContent += "Cor ou Raca (IBGE),Qtd,%\n";
-    Object.entries(corCounts).forEach(([label, count]) => {
-      const pct = filtered.length > 0 ? ((count / filtered.length) * 100).toFixed(1) : '0.0';
-      csvContent += `${label},${count},${pct}%\n`;
+    csvContent += "Cor ou Raca (IBGE),Total,Feminino,Masculino,Outro,%\n";
+    Object.entries(corCounts).forEach(([label, data]) => {
+      const pct = filtered.length > 0 ? ((data.total / filtered.length) * 100).toFixed(1) : '0.0';
+      csvContent += `${label},${data.total},${data.f},${data.m},${data.o},${pct}%\n`;
     });
 
     csvContent += "\n";

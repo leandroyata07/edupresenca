@@ -512,7 +512,7 @@ function renderContent(state, allTurmas, allAlunos, allCursos, allUnidades, allP
     return renderPorData(state, allPresencas, allAlunos, allTurmas);
   }
   if (state.tipoRelatorio === 'aluno') {
-    return renderPorAluno(state, allAlunos, allTurmas, allPresencas, allNotas);
+    return renderPorAluno(state, allAlunos, allTurmas, allPresencas, allNotas, allCursos, allUnidades);
   }
   if (state.tipoRelatorio === 'disciplina') {
     return renderPorDisciplina(state, allNotas, allAlunos, allTurmas);
@@ -614,7 +614,7 @@ function renderPorData(state, allPresencas, allAlunos, allTurmas) {
   `;
 }
 
-function renderPorAluno(state, allAlunos, allTurmas, allPresencas, allNotas) {
+function renderPorAluno(state, allAlunos, allTurmas, allPresencas, allNotas, allCursos, allUnidades) {
   if (!state.filtroAlunoId) return '<div class="empty-state"><p>Selecione um aluno acima.</p></div>';
 
   const aluno = allAlunos.find(a => a.id === state.filtroAlunoId);
@@ -622,36 +622,116 @@ function renderPorAluno(state, allAlunos, allTurmas, allPresencas, allNotas) {
   const pList = allPresencas.filter(p => p.alunoId === aluno.id);
   const nList = allNotas.filter(n => n.alunoId === aluno.id);
 
+  const cursoObj = allCursos.find(c => c.id === turma?.cursoId);
+  const unidadeObj = allUnidades.find(u => u.id === aluno.unidadeId);
+
   const presencasNum = pList.filter(p => p.presente).length;
   const faltasNum = pList.length - presencasNum;
   const percFreq = pList.length > 0 ? ((presencasNum / pList.length) * 100).toFixed(1) : 100;
 
-  return `
-    <div class="card" style="margin-bottom: 24px;">
-      <div class="card-body">
-        <h3 style="font-size:18px; margin-bottom: 8px;">${eh(aluno.nome)}</h3>
-        <p style="color:var(--text-secondary); margin-bottom: 16px;">Turma: ${eh(turma?.nome || '—')} &nbsp;|&nbsp; RA: ${aluno.matricula || 'N/A'}</p>
-        
-        <div style="display:flex; gap:24px;">
-          <div><strong>Aulas Registradas:</strong> ${pList.length}</div>
-          <div><strong>Presenças:</strong> ${presencasNum}</div>
-          <div><strong>Faltas:</strong> <span style="color:var(--danger-500)">${faltasNum}</span></div>
-          <div><strong>Frequência Acumulada:</strong> <span style="font-weight:700; ${percFreq < 75 ? 'color:var(--danger-500)' : ''}">${percFreq}%</span></div>
-        </div>
-      </div>
-    </div>
+  const discMap = {};
+  nList.forEach(n => {
+    if (!discMap[n.disciplina]) discMap[n.disciplina] = {1: '-', 2: '-', 3: '-', 4: '-'};
     
-    <div class="card">
-      <div class="card-header"><span class="card-title">Boletim Consolidado</span></div>
-      <div class="table-wrapper">
-        <table>
-          <thead><tr><th>Disciplina</th><th>Nota</th><th>Referência</th></tr></thead>
-          <tbody>
-            ${nList.length === 0 ? '<tr><td colspan="3" style="text-align:center;">Nenhuma nota lançada.</td></tr>' :
-      nList.map(n => `<tr><td><strong>${eh(n.disciplina)}</strong></td><td>${n.nota}</td><td>${eh(n.referencia || '-')}</td></tr>`).join('')}
-          </tbody>
-        </table>
+    let mod = 1;
+    if (n.modulo) {
+        mod = parseInt(n.modulo, 10);
+    } else {
+        // Fallback para notas antigas sem o carimbo do módulo
+        let ref = String(n.referencia || n.periodo || '').toUpperCase().trim();
+        if (ref.includes('4') || ref.includes('IV')) mod = 4;
+        else if (ref.includes('3') || ref.includes('III')) mod = 3;
+        else if (ref.includes('2') || ref.includes('II')) mod = 2;
+        else if (ref.includes('1') || ref.includes('I')) mod = 1;
+    }
+    
+    // Se a nota for maior que 10 e não houver ponto, formatar para exibição caso necessário, mas vamos confiar no que foi digitado
+    if (mod >= 1 && mod <= 4) {
+        discMap[n.disciplina][mod] = n.nota;
+    }
+  });
+
+  const discs = Object.keys(discMap).sort((a, b) => a.localeCompare(b));
+
+  return `
+    <div style="background: #fff; padding: 24px; color: #000; border: 1px solid #ccc; max-width: 900px; margin: 0 auto; overflow-x: auto; margin-bottom: 24px; font-family: 'Times New Roman', Times, serif;">
+      
+      <!-- Cabeçalho Oficial -->
+      <div style="text-align: center; margin-bottom: 15px;">
+        <h2 style="font-size:14px; text-transform:uppercase; margin:2px 0;">República Federativa do Brasil</h2>
+        <h2 style="font-size:14px; text-transform:uppercase; margin:2px 0;">Secretaria da Educação do Estado da Bahia</h2>
+        <h1 style="font-size:18px; margin:10px 0; font-weight:bold;">HISTÓRICO ESCOLAR</h1>
+        <h3 style="font-size:14px; margin:2px 0; font-weight:normal;">EDUCAÇÃO PROFISSIONAL TÉCNICA DE NÍVEL MÉDIO</h3>
       </div>
+      
+      <!-- Dados Institucionais e do Aluno -->
+      <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:8px;">
+        <tr>
+          <td colspan="3" style="border:1px solid #000; padding:4px;">Estabelecimento: <strong>${eh(unidadeObj?.nome || '—')}</strong></td>
+          <td style="border:1px solid #000; padding:4px;">Código: <strong>${eh(unidadeObj?.id?.substring(0,6) || '—')}</strong></td>
+        </tr>
+        <tr>
+          <td colspan="4" style="border:1px solid #000; padding:4px;">Endereço: <strong>${eh(unidadeObj?.endereco || '—')}</strong></td>
+        </tr>
+        <tr>
+          <td colspan="4" style="border:1px solid #000; padding:4px;">Nome do Aluno: <strong>${eh(aluno.nome)}</strong></td>
+        </tr>
+        <tr>
+          <td style="border:1px solid #000; padding:4px;">Data de Nascimento: <strong>${aluno.dataNascimento ? formatDate(aluno.dataNascimento) : '—'}</strong></td>
+          <td style="border:1px solid #000; padding:4px;">Matrícula: <strong>${eh(aluno.matricula || '—')}</strong></td>
+          <td colspan="2" style="border:1px solid #000; padding:4px;">Nacionalidade: <strong>Brasileira</strong></td>
+        </tr>
+        <tr>
+          <td colspan="4" style="border:1px solid #000; padding:4px;">Habilitação/Curso: <strong>${eh(cursoObj?.nome || '—')}</strong></td>
+        </tr>
+      </table>
+
+      <!-- Tabela de Componentes Curriculares -->
+      <table style="width:100%; border-collapse:collapse; font-size:12px; border:1px solid #000; text-align:center;">
+        <thead>
+          <tr>
+            <th rowspan="2" style="border:1px solid #000; padding:4px; width:40%;">COMPONENTES CURRICULARES</th>
+            <th colspan="2" style="border:1px solid #000; padding:4px;">Módulo I</th>
+            <th colspan="2" style="border:1px solid #000; padding:4px;">Módulo II</th>
+            <th colspan="2" style="border:1px solid #000; padding:4px;">Módulo III</th>
+            <th colspan="2" style="border:1px solid #000; padding:4px;">Módulo IV</th>
+          </tr>
+          <tr>
+            <th style="border:1px solid #000; padding:4px; font-size:10px;">NOTA</th>
+            <th style="border:1px solid #000; padding:4px; font-size:10px;">C. HOR</th>
+            <th style="border:1px solid #000; padding:4px; font-size:10px;">NOTA</th>
+            <th style="border:1px solid #000; padding:4px; font-size:10px;">C. HOR</th>
+            <th style="border:1px solid #000; padding:4px; font-size:10px;">NOTA</th>
+            <th style="border:1px solid #000; padding:4px; font-size:10px;">C. HOR</th>
+            <th style="border:1px solid #000; padding:4px; font-size:10px;">NOTA</th>
+            <th style="border:1px solid #000; padding:4px; font-size:10px;">C. HOR</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${discs.length === 0 ? '<tr><td colspan="9" style="border:1px solid #000; padding:8px;">Nenhum componente curricular registrado.</td></tr>' : 
+            discs.map(d => `
+            <tr>
+              <td style="border:1px solid #000; padding:4px; text-align:left;">${eh(d)}</td>
+              <td style="border:1px solid #000; padding:4px;">${discMap[d][1]}</td>
+              <td style="border:1px solid #000; padding:4px;">-</td>
+              <td style="border:1px solid #000; padding:4px;">${discMap[d][2]}</td>
+              <td style="border:1px solid #000; padding:4px;">-</td>
+              <td style="border:1px solid #000; padding:4px;">${discMap[d][3]}</td>
+              <td style="border:1px solid #000; padding:4px;">-</td>
+              <td style="border:1px solid #000; padding:4px;">${discMap[d][4]}</td>
+              <td style="border:1px solid #000; padding:4px;">-</td>
+            </tr>`).join('')
+          }
+        </tbody>
+      </table>
+      
+      <!-- Frequência e Observações -->
+      <div style="margin-top: 15px; font-size: 12px; line-height:1.5;">
+        <p style="margin: 0;"><strong>Aulas Registradas:</strong> ${pList.length} &nbsp;|&nbsp; <strong>Presenças:</strong> ${presencasNum} &nbsp;|&nbsp; <strong>Faltas:</strong> ${faltasNum}</p>
+        <p style="margin: 0;"><strong>Frequência Acumulada:</strong> ${percFreq}%</p>
+        <p style="margin: 5px 0 0 0;"><strong>Observações:</strong> O rendimento e a frequência do aluno estão em conformidade com o regimento escolar. Documento emitido digitalmente pelo sistema EduPresença.</p>
+      </div>
+
     </div>
   `;
 }

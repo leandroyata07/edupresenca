@@ -512,12 +512,18 @@ export const notas = {
             n => !(n.turmaId === turmaId && n.disciplina === disciplina && n.periodo === periodo)
         );
         const now = new Date().toISOString();
+        
+        // Fetch current modulo from turma
+        const t = turmas.getById(turmaId);
+        const moduloDaTurma = t?.modulo || 1;
+
         registros.forEach(r => {
             all.push({
                 id: uid(), turmaId, disciplina, periodo,
                 alunoId: r.alunoId, 
                 nota: r.nota, 
                 parciais: r.parciais || [],
+                modulo: moduloDaTurma, // Carimbo do Módulo!
                 createdAt: now
             });
         });

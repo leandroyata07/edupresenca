@@ -64,6 +64,7 @@ export function render(outlet) {
             { label: 'Curso', key: 'cursoId', render: (v) => { const c = allCursos.find(c => c.id === v); return c ? `<span class="badge badge-primary">${escapeHtml(c.nome)}</span>` : '—'; } },
             { label: 'Unidade', key: 'unidadeId', render: (v) => { const u = allUnidades.find(u => u.id === v); return escapeHtml(u?.nome?.split(' ').slice(0, 3).join(' ') || '—'); } },
             { label: 'Turno', key: 'turnoId', render: (v) => { const t = allTurnos.find(t => t.id === v); return t ? `<span class="badge badge-info">${escapeHtml(t.nome)} (${t.maxPeriodos || 6} aulas/dia)</span>` : '—'; } },
+            { label: 'Módulo', key: 'modulo', render: (v) => v ? `<span style="font-weight:600; color:var(--primary-600)">Módulo ${v}</span>` : 'Módulo 1' },
             {
                 label: 'Alunos', key: 'id', render: (id) => {
                     const count = alunos.getAll().filter(a => a.turmaId === id).length;
@@ -79,6 +80,14 @@ export function render(outlet) {
             { name: 'nome', label: 'Nome da Turma', placeholder: 'Ex: 9º Ano A', required: true },
             { name: 'anoLetivo', label: 'Ano Letivo', type: 'number', placeholder: String(currentYear), required: true, min: 2000, max: 2100 },
             { name: 'cursoId', label: 'Curso', type: 'select', required: true, options: allCursos.map(c => ({ value: c.id, label: c.nome })) },
+            { name: 'modulo', label: 'Módulo Atual (Semestre)', type: 'select', required: true, options: [
+                { value: '1', label: 'Módulo 1' },
+                { value: '2', label: 'Módulo 2' },
+                { value: '3', label: 'Módulo 3' },
+                { value: '4', label: 'Módulo 4' },
+                { value: '5', label: 'Módulo 5' },
+                { value: '6', label: 'Módulo 6' }
+            ]},
             { name: 'unidadeId', label: 'Unidade', type: 'select', required: true, options: allUnidades.map(u => ({ value: u.id, label: u.nome })) },
             { name: 'turnoId', label: 'Turno', type: 'select', required: true, options: allTurnos.map(t => ({ value: t.id, label: `${t.nome} (${t.inicio}–${t.fim}) — ${t.maxPeriodos || 6} aulas/dia` })) },
             { name: 'capacidade', label: 'Capacidade (vagas)', type: 'number', placeholder: '40', min: 1, max: 100 },

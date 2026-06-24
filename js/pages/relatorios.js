@@ -198,10 +198,10 @@ export function render(outlet) {
 
     <!-- Controles de Tipo e Filtro do Relatório -->
     <div class="card" style="margin-bottom: var(--space-6);">
-      <div class="card-body" style="padding: var(--space-4) var(--space-6); display: flex; gap: var(--space-4); align-items: flex-end; flex-wrap: wrap;">
+      <div class="card-body" style="padding: var(--space-4) var(--space-6); display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;">
         
         <!-- Seletor de Tipo -->
-        <div class="form-group" style="min-width: 200px;">
+        <div class="form-group" style="flex: 1; min-width: 200px;">
           <label class="form-label">Tipo de Relatório</label>
           <select class="form-control" id="select-tipo-relatorio">
             <option value="geral" ${state.tipoRelatorio === 'geral' ? 'selected' : ''}>Visão Geral (Painel)</option>
@@ -323,11 +323,11 @@ function renderFiltrosCondicionais(state, alunos, turmas, notas) {
 
   if (state.tipoRelatorio === 'data') {
     return `
-      <div class="form-group" style="min-width: 150px;">
+      <div class="form-group" style="flex: 1; min-width: 150px;">
         <label class="form-label">Data Início (De)</label>
         <input type="date" class="form-control" id="filtro-data-input" value="${eh(state.filtroData)}">
       </div>
-      <div class="form-group" style="min-width: 150px;">
+      <div class="form-group" style="flex: 1; min-width: 150px;">
         <label class="form-label">Data Fim (Até)</label>
         <input type="date" class="form-control" id="filtro-data-fim" value="${eh(state.filtroDataFim)}">
       </div>
@@ -351,36 +351,41 @@ function renderFiltrosCondicionais(state, alunos, turmas, notas) {
       return t && t.turnoId === state.filtroTurnoId;
     });
 
+    let filteredTurmas = turmas;
+    if (state.filtroUnidadeId) filteredTurmas = filteredTurmas.filter(t => t.unidadeId === state.filtroUnidadeId);
+    if (state.filtroCursoId) filteredTurmas = filteredTurmas.filter(t => t.cursoId === state.filtroCursoId);
+    if (state.filtroTurnoId) filteredTurmas = filteredTurmas.filter(t => t.turnoId === state.filtroTurnoId);
+
     return `
-      <div class="form-group" style="min-width: 140px;">
+      <div class="form-group" style="flex: 1; min-width: 140px;">
         <label class="form-label">Unidade</label>
         <select class="form-control filtro-select-dinamico" id="select-unidade">
           <option value="">Todas</option>
           ${allUnidades.map(u => `<option value="${u.id}" ${state.filtroUnidadeId === u.id ? 'selected' : ''}>${eh(u.nome)}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group" style="min-width: 140px;">
+      <div class="form-group" style="flex: 1; min-width: 140px;">
         <label class="form-label">Curso</label>
         <select class="form-control filtro-select-dinamico" id="select-curso">
           <option value="">Todos</option>
           ${allCursos.map(c => `<option value="${c.id}" ${state.filtroCursoId === c.id ? 'selected' : ''}>${eh(c.nome)}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group" style="min-width: 140px;">
+      <div class="form-group" style="flex: 1; min-width: 140px;">
         <label class="form-label">Turno</label>
         <select class="form-control filtro-select-dinamico" id="select-turno">
           <option value="">Todos</option>
           ${allTurnos.map(t => `<option value="${t.id}" ${state.filtroTurnoId === t.id ? 'selected' : ''}>${eh(t.nome)}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group" style="min-width: 140px;">
+      <div class="form-group" style="flex: 1; min-width: 140px;">
         <label class="form-label">Turma</label>
         <select class="form-control filtro-select-dinamico" id="select-turma">
           <option value="">Todas</option>
-          ${turmas.map(t => `<option value="${t.id}" ${state.filtroTurmaId == t.id ? 'selected' : ''}>${eh(t.nome)}</option>`).join('')}
+          ${filteredTurmas.map(t => `<option value="${t.id}" ${state.filtroTurmaId == t.id ? 'selected' : ''}>${eh(t.nome)}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group" style="min-width: 250px;">
+      <div class="form-group" style="flex: 1; min-width: 250px;">
         <label class="form-label">Selecionar Aluno</label>
         <select class="form-control filtro-select-dinamico" id="select-aluno">
           <option value="">Selecione um aluno...</option>
@@ -399,36 +404,41 @@ function renderFiltrosCondicionais(state, alunos, turmas, notas) {
     notas.forEach(n => { if (n.disciplina) dMap.add(n.disciplina) });
     const discs = Array.from(dMap).sort();
 
+    let filteredTurmas = turmas;
+    if (state.filtroUnidadeId) filteredTurmas = filteredTurmas.filter(t => t.unidadeId === state.filtroUnidadeId);
+    if (state.filtroCursoId) filteredTurmas = filteredTurmas.filter(t => t.cursoId === state.filtroCursoId);
+    if (state.filtroTurnoId) filteredTurmas = filteredTurmas.filter(t => t.turnoId === state.filtroTurnoId);
+
     return `
-      <div class="form-group" style="min-width: 140px;">
+      <div class="form-group" style="flex: 1; min-width: 140px;">
         <label class="form-label">Unidade</label>
         <select class="form-control filtro-select-dinamico" id="select-unidade">
           <option value="">Todas</option>
           ${allUnidades.map(u => `<option value="${u.id}" ${state.filtroUnidadeId === u.id ? 'selected' : ''}>${eh(u.nome)}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group" style="min-width: 140px;">
+      <div class="form-group" style="flex: 1; min-width: 140px;">
         <label class="form-label">Curso</label>
         <select class="form-control filtro-select-dinamico" id="select-curso">
           <option value="">Todos</option>
           ${allCursos.map(c => `<option value="${c.id}" ${state.filtroCursoId === c.id ? 'selected' : ''}>${eh(c.nome)}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group" style="min-width: 140px;">
+      <div class="form-group" style="flex: 1; min-width: 140px;">
         <label class="form-label">Turno</label>
         <select class="form-control filtro-select-dinamico" id="select-turno">
           <option value="">Todos</option>
           ${allTurnos.map(t => `<option value="${t.id}" ${state.filtroTurnoId === t.id ? 'selected' : ''}>${eh(t.nome)}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group" style="min-width: 140px;">
+      <div class="form-group" style="flex: 1; min-width: 140px;">
         <label class="form-label">Turma</label>
         <select class="form-control filtro-select-dinamico" id="select-turma">
           <option value="">Todas</option>
-          ${turmas.map(t => `<option value="${t.id}" ${state.filtroTurmaId == t.id ? 'selected' : ''}>${eh(t.nome)}</option>`).join('')}
+          ${filteredTurmas.map(t => `<option value="${t.id}" ${state.filtroTurmaId == t.id ? 'selected' : ''}>${eh(t.nome)}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group" style="min-width: 200px;">
+      <div class="form-group" style="flex: 1; min-width: 200px;">
         <label class="form-label">Disciplina</label>
         <select class="form-control filtro-select-dinamico" id="select-disciplina">
           <option value="">Todas as Disciplinas</option>
@@ -439,12 +449,42 @@ function renderFiltrosCondicionais(state, alunos, turmas, notas) {
   }
 
   if (state.tipoRelatorio === 'turma') {
+    const allUnidades = unidades.getAll().sort((a, b) => a.nome.localeCompare(b.nome));
+    const allCursos = cursos.getAll().sort((a, b) => a.nome.localeCompare(b.nome));
+    const allTurnos = turnos.getAll().sort((a, b) => a.nome.localeCompare(b.nome));
+
+    let filteredTurmas = turmas;
+    if (state.filtroUnidadeId) filteredTurmas = filteredTurmas.filter(t => t.unidadeId === state.filtroUnidadeId);
+    if (state.filtroCursoId) filteredTurmas = filteredTurmas.filter(t => t.cursoId === state.filtroCursoId);
+    if (state.filtroTurnoId) filteredTurmas = filteredTurmas.filter(t => t.turnoId === state.filtroTurnoId);
+
     return `
-      <div class="form-group" style="min-width: 250px;">
+      <div class="form-group" style="flex: 1; min-width: 140px;">
+        <label class="form-label">Unidade</label>
+        <select class="form-control filtro-select-dinamico" id="select-unidade">
+          <option value="">Todas</option>
+          ${allUnidades.map(u => `<option value="${u.id}" ${state.filtroUnidadeId === u.id ? 'selected' : ''}>${eh(u.nome)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="flex: 1; min-width: 140px;">
+        <label class="form-label">Curso</label>
+        <select class="form-control filtro-select-dinamico" id="select-curso">
+          <option value="">Todos</option>
+          ${allCursos.map(c => `<option value="${c.id}" ${state.filtroCursoId === c.id ? 'selected' : ''}>${eh(c.nome)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="flex: 1; min-width: 140px;">
+        <label class="form-label">Turno</label>
+        <select class="form-control filtro-select-dinamico" id="select-turno">
+          <option value="">Todos</option>
+          ${allTurnos.map(t => `<option value="${t.id}" ${state.filtroTurnoId === t.id ? 'selected' : ''}>${eh(t.nome)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="flex: 1; min-width: 250px;">
         <label class="form-label">Turma (Diário de Classe)</label>
         <select class="form-control filtro-select-dinamico" id="select-turma">
           <option value="">Selecione uma turma...</option>
-          ${turmas.map(t => `<option value="${t.id}" ${state.filtroTurmaId == t.id ? 'selected' : ''}>${eh(t.nome)}</option>`).join('')}
+          ${filteredTurmas.map(t => `<option value="${t.id}" ${state.filtroTurmaId == t.id ? 'selected' : ''}>${eh(t.nome)}</option>`).join('')}
         </select>
       </div>
     `;
@@ -463,35 +503,35 @@ function renderFiltrosCondicionais(state, alunos, turmas, notas) {
     }
 
     return `
-      <div class="form-group" style="min-width: 160px;">
+      <div class="form-group" style="flex: 1; min-width: 160px;">
         <label class="form-label">Unidade</label>
         <select class="form-control filtro-select-dinamico" id="select-unidade">
           <option value="">Todas as unidades</option>
           ${allUnidades.map(u => `<option value="${u.id}" ${state.filtroUnidadeId === u.id ? 'selected' : ''}>${eh(u.nome)}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group" style="min-width: 160px;">
+      <div class="form-group" style="flex: 1; min-width: 160px;">
         <label class="form-label">Turma</label>
         <select class="form-control filtro-select-dinamico" id="select-turma">
           <option value="">Todas as turmas</option>
           ${turmas.map(t => `<option value="${t.id}" ${state.filtroTurmaId == t.id ? 'selected' : ''}>${eh(t.nome)}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group" style="min-width: 140px;">
+      <div class="form-group" style="flex: 1; min-width: 140px;">
         <label class="form-label">Turno</label>
         <select class="form-control filtro-select-dinamico" id="select-turno">
           <option value="">Todos os turnos</option>
           ${allTurnos.map(t => `<option value="${t.id}" ${state.filtroTurnoId === t.id ? 'selected' : ''}>${eh(t.nome)}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group" style="min-width: 120px;">
+      <div class="form-group" style="flex: 1; min-width: 120px;">
         <label class="form-label">Estado (UF)</label>
         <select class="form-control filtro-select-dinamico" id="select-uf">
           <option value="">Todos</option>
           ${ufsList.map(uf => `<option value="${uf}" ${state.filtroUf === uf ? 'selected' : ''}>${uf}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group" style="min-width: 160px;">
+      <div class="form-group" style="flex: 1; min-width: 160px;">
         <label class="form-label">Cidade</label>
         <select class="form-control filtro-select-dinamico" id="select-cidade">
           <option value="">Todas</option>
